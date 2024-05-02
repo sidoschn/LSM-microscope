@@ -4,7 +4,9 @@ This github will include the necessary software to control the different compone
 
 ## Environment
 
-In order to use the software you will need to activate the environment created to control the dependencies version used. To activate the environment, open a console in the path were you clone the repository and run the command `.\lsm_env\Scripts\activate` 
+In order to use the software it is recommended to crate a virtual environment (you need to install python beforehand :snake:). You can create the virtual environment running the next command `python -m venv lsm_env`.
+
+To activate the environment, open a console in the path were you clone the repository and run the command `.\lsm_env\Scripts\activate` 
 
 If the environment is properly activated you will see the name of the environment before the path in the command line (example bellow)
 
@@ -15,6 +17,8 @@ If you got this error,
 ![error activate venv](images_readme/error_venv.PNG)
 
 Run the command `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force` and try to activate the environment again.
+
+Once you are in the environment, you will need to install the required libraries. These libraries are in the requirements.txt file. You can install them running the command `pip install -r requirements.txt`. It can take some minutes, so grab a coffee in the meanwhile :coffee: :smile:
 
 To deactivate the environment and return to the global Python environment, simply use the `deactivate` command.
 
