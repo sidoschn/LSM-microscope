@@ -12,7 +12,7 @@ If the environment is properly activated you will see the name of the environmen
 
 If you got this error, 
 
-![error activate venv](images_readme/error_venv.png)
+![error activate venv](images_readme/error_venv.PNG)
 
 Run the command `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force` and try to activate the environment again.
 
