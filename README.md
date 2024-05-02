@@ -8,7 +8,13 @@ In order to use the software you will need to activate the environment created t
 
 If the environment is properly activated you will see the name of the environment before the path in the command line (example bellow)
 
-![alt text](images_readme/activate_env.png)
+![Activate venv](images_readme/activate_env.png)
+
+If you got this error, 
+
+![error activate venv](images_readme/error_venv.PNG)
+
+Run the command `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force` and try to activate the environment again.
 
 To deactivate the environment and return to the global Python environment, simply use the `deactivate` command.
 
