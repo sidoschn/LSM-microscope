@@ -18,6 +18,6 @@ Run the command `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -For
 
 To deactivate the environment and return to the global Python environment, simply use the `deactivate` command.
 
-## Napari
+<!-- ## Napari
 
-[Napari](https://napari.org) is a powerful library for n-dimensional image visualisation, annotation, and analysis. Hence, it is the selected tool for this project. To run it, just write the command `napari` in the console after activating the environment.
+[Napari](https://napari.org) is a powerful library for n-dimensional image visualisation, annotation, and analysis. Hence, it is the selected tool for this project. To run it, just write the command `napari` in the console after activating the environment. -->
