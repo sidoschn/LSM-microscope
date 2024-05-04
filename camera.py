@@ -1,65 +1,54 @@
-# import napari
-# import cv2
-
-# def capture_camera():
-#     # Open the camera
-#     cap = cv2.VideoCapture(0)
-    
-#     while True:
-#         # Capture frame-by-frame
-#         ret, frame = cap.read()
-        
-#         # Convert the frame from BGR to RGB (required for Napari)
-#         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-#         # Display the frame in Napari
-#         viewer.add_image(frame_rgb, name='Camera Feed', rgb=True)
-        
-#         # Update the Napari viewer
-#         #viewer.refresh()
-
-#         # If 'q' is pressed, exit the loop
-#         if cv2.waitKey(1) & 0xFF == ord('q'):
-#             break
-    
-#     # Release the camera and close the Napari viewer
-#     cap.release()
-#     cv2.destroyAllWindows()
-
-# # Create a Napari viewer
-# viewer = napari.Viewer()
-
-# # Capture and display the camera feed
-# capture_camera()
-
-import matplotlib.pyplot as plt
+import sys
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import Qt, QTimer
 import pco
 import numpy as np
 
+class LiveViewGUI(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.camera = pco.Camera(interface='USB 3.0')  # Initialize the camera
+        self.initUI()
 
-height = 100
-width = 100
+    def initUI(self):
+        self.setWindowTitle('Live View')
+        self.setGeometry(100, 100, 640, 480)
 
-with pco.Camera(interface = 'USB 3.0') as cam:
+        # QLabel to display the live video feed
+        self.image_label = QLabel(self)
+        self.image_label.setFixedSize(640, 480)
+        self.image_label.setAlignment(Qt.AlignCenter)
 
-    # get image width and height
-    cam_settings = cam.rec.get_settings()
-    #width = cam_settings["width"]
-    #height = cam_settings["height"]
+        # Layout setup
+        layout = QVBoxLayout()
+        layout.addWidget(self.image_label)
+        self.setLayout(layout)
 
-    # Create a figure and axis for plotting
-    fig, ax = plt.subplots()
+        # Create a QTimer for updating the image label
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_image)
+        self.timer.start(100)  # Update every 100 ms
 
-    # Initialize the plot with an empty image
-    img_data = np.zeros((height,width))
-    img_plot = ax.imshow(img_data)
+        # Start the camera
+        self.camera.sdk.set_delay_exposure_time(0, 'ms', 10, 'ms')
+        self.camera.record(10, mode="fifo")
+        self.camera.wait_for_first_image()
 
-    # while True:
-    #     cam.record(mode="sequence")
-    #     img, meta = cam.image()
-        
-    #     img_plot.set_data(img)
+    def update_image(self):
+        # Get the latest frame from the camera
+        img, _ = self.camera.image()
+        if img is not None:
+            # Convert the frame to a QImage
+            height, width = img.shape
+            q_img = QImage(img.data, width, height, QImage.Format_Grayscale8)
 
-    #     plt.draw()
-        #plt.show()
-        #plt.close()
+            # Convert the QImage to a QPixmap and display it
+            pixmap = QPixmap.fromImage(q_img)
+            self.image_label.setPixmap(pixmap)
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    window = LiveViewGUI()
+    window.show()
+    sys.exit(app.exec_())
