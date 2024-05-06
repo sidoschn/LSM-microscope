@@ -2,10 +2,16 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QCheckBox, QFrame
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QTimer
+import MCM300 as mc
 
 class MicroscopeControlGUI(QWidget):
     def __init__(self):
         super().__init__()
+        controller_mcm = mc.Controller(which_port='COM4',
+                                        stages=('ZFM2020', 'ZFM2020', 'ZFM2020'),
+                                        reverse=(False, False, False),
+                                        verbose=True,
+                                        very_verbose=False)
         self.initUI()
 
     def initUI(self):
@@ -33,10 +39,9 @@ class MicroscopeControlGUI(QWidget):
         self.image_label.setAlignment(Qt.AlignCenter)
 
         # Sliders for velocity and position
-        self.velocity_slider, self.velocity_text = self.create_slider_with_text('Velocity', -100, 100, 0)
-        self.x_slider, self.x_text = self.create_slider_with_text('X Position', -100, 100, 0)
-        self.y_slider, self.y_text = self.create_slider_with_text('Y Position', -100, 100, 0)
-        self.z_slider, self.z_text = self.create_slider_with_text('Z Position', -100, 100, 0)
+        self.x_slider, self.x_text = self.create_slider_with_text('X Position (um)', -10000, 10000, 0)
+        self.y_slider, self.y_text = self.create_slider_with_text('Y Position (um)', -10000, 10000, 0)
+        self.z_slider, self.z_text = self.create_slider_with_text('Z Position (um)', -10000, 10000, 0)
 
         # Slider for current value
         self.current_slider, self.current_text = self.create_slider_with_text('Current', -100, 100, 0)
@@ -45,6 +50,13 @@ class MicroscopeControlGUI(QWidget):
         self.frequency_slider, self.frequency_text = self.create_slider_with_text('Frequency', -100, 100, 0)
         self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', -100, 100, 0)
 
+        # add callback functions for sliders
+        #self.x_slider.mouseReleaseEvent.connect(self.sliderChanged)  # Use sliderReleased signal instead
+        self.x_slider.event()
+        def sliderChanged(self):
+            value = self.slider.value()
+            print(f"Slider Value: {value}")
+
         # Text fields for manual input
         self.exposure_text = self.create_text_input('Exposure')
         self.alpha_text = self.create_text_input('Alpha')
@@ -52,6 +64,7 @@ class MicroscopeControlGUI(QWidget):
         # Button for manual contrast adjustment
         self.contrast_button = QPushButton('Manual Contrast')
         self.contrast_button.clicked.connect(self.manual_contrast)
+        self.contrast_button.clicked
 
         # Checkbox for automatic contrast correction
         self.auto_contrast_checkbox = QCheckBox('Automatic Contrast')
@@ -61,7 +74,6 @@ class MicroscopeControlGUI(QWidget):
         vbox = QVBoxLayout()
         vbox.addWidget(self.image_label)
         vbox.addStretch(1)
-        vbox.addLayout(self.velocity_slider)
         vbox.addLayout(self.x_slider)
         vbox.addLayout(self.y_slider)
         vbox.addLayout(self.z_slider)
@@ -133,7 +145,6 @@ class MicroscopeControlGUI(QWidget):
 
     def print_values(self):
       # Print values of GUI components
-      print("Velocity:", self.velocity_text.text())
       print("X Position:", self.x_text.text())
       print("Y Position:", self.y_text.text())
       print("Z Position:", self.z_text.text())

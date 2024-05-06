@@ -24,7 +24,7 @@ class Controller:
         if self.verbose: print("%s: opening..."%self.name, end='')
         try:
             self.port = serial.Serial(
-                port=which_port, baudrate=460800, timeout=5)
+                port=which_port, baudrate=9600, timeout=5)
         except serial.serialutil.SerialException:
             raise IOError(
                 '%s: no connection on port %s'%(self.name, which_port))
@@ -201,15 +201,15 @@ class Controller:
         return None
 
 if __name__ == '__main__':
-    channel = 2
+    channel = 0
     controller = Controller(which_port='COM4',
-                            stages=(None, None, 'ZFM2020'),
-                            reverse=(False, False, True),
+                            stages=('ZFM2020', 'ZFM2020', 'ZFM2020'),
+                            reverse=(False, False, False),
                             verbose=True,
                             very_verbose=False)
 
     # re-set zero:
-    controller.move_um(channel, 10)
+    controller.move_um(channel, 1000)
     controller._set_encoder_counts_to_zero(channel)
     controller.move_um(channel, 0)
 
@@ -224,23 +224,23 @@ if __name__ == '__main__':
 
     print('\n# Some relative moves:')
     for moves in range(3):
-        controller.move_um(channel, 10)
+        controller.move_um(channel, 1000)
     for moves in range(3):
-        controller.move_um(channel, -10)
+        controller.move_um(channel, -1000)
 
     print('\n# Legalized move:')
-    legal_move_um = controller._legalize_move_um(channel, 100, relative=True)
+    legal_move_um = controller._legalize_move_um(channel, 1000, relative=True)
     controller.move_um(channel, legal_move_um)
 
     print('\n# Some random absolute moves:')
     from random import randrange
     for moves in range(3):
-        random_move_um = randrange(-100, 100)
+        random_move_um = randrange(-1000, 1000)
         move = controller.move_um(channel, random_move_um, relative=False)
 
     print('\n# Non-blocking move:')
-    controller.move_um(channel, 200, block=False)
-    controller.move_um(channel, 100, block=False)
+    controller.move_um(channel, 2000, block=False)
+    controller.move_um(channel, 1000, block=False)
     print('(immediate follow up call forces finish on pending move)')
     print('doing something else')
     controller._finish_move(channel)
