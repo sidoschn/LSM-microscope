@@ -5,6 +5,7 @@ from PyQt5.QtCore import Qt, QTimer
 import MCM300 as mc
 import pco
 import threading
+from optotune_lens import Lens
 
 class MicroscopeControlGUI(QWidget):
     def __init__(self):
@@ -21,6 +22,15 @@ class MicroscopeControlGUI(QWidget):
         
         # Initialize the camera
         self.camera = pco.Camera(interface='USB 3.0')  
+
+        # Init the optotune lens
+        self.lens = Lens('COM5', debug=False)
+        print(self.lens.firmware_type)
+        print(self.lens.firmware_version)
+        print(self.lens.get_firmware_branch())
+        print('Lens serial number:', self.lens.lens_serial)
+        print('Lens temperature:', self.lens.get_temperature())
+        self.lens.to_current_mode()
 
         self.initUI()
 
@@ -49,7 +59,7 @@ class MicroscopeControlGUI(QWidget):
         self.z_slider, self.z_text = self.create_slider_with_text('Z Position (um)', -10000, 10000, 0, self.move_stage, channel = 2)
 
         # Slider for current value
-        self.current_slider, self.current_text = self.create_slider_with_text('Current', -100, 100, 0, self.do_nothing)
+        self.current_slider, self.current_text = self.create_slider_with_text('Current', -300, 300, 0, self.change_optotune_current)
 
         # Sliders for motor frequency and amplitude
         self.frequency_slider, self.frequency_text = self.create_slider_with_text('Frequency', -100, 100, 0, self.do_nothing)
@@ -128,16 +138,22 @@ class MicroscopeControlGUI(QWidget):
         slider.valueChanged.connect(lambda value, text_box=text_box: self.update_text_box_from_slider(value, text_box))
         text_box.textChanged.connect(lambda text, slider=slider, min_val=min_val, max_val=max_val: self.update_slider_from_text_box(text, slider, min_val, max_val))
         
-        # move the stage only when the sluider is released or after pressing enter in the textbox (more safe)
+        # move the stage only when the slider is released or after pressing enter in the textbox (more safe)
         if channel is not None:
             slider.sliderReleased.connect(lambda: callback(channel, slider.value())) 
             text_box.editingFinished.connect(lambda: callback(channel, slider.value()))  
+        else:    
+            # General callback function
+            slider.sliderReleased.connect(lambda: callback(slider.value())) 
 
         return hbox, text_box
     
     def move_stage(self, channel, value):
-        #self.controller_mcm.move_um(channel,value)
         thread = threading.Thread(target=self.controller_mcm.move_um, args=(channel, value))
+        thread.start()
+
+    def change_optotune_current(self,value):
+        thread = threading.Thread(target=self.lens.set_current, args=([value]))
         thread.start()
 
     def update_text_box_from_slider(self, value, text_box):
