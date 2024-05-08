@@ -7,18 +7,22 @@ import MCM300 as mc
 class MicroscopeControlGUI(QWidget):
     def __init__(self):
         super().__init__()
-        controller_mcm = mc.Controller(which_port='COM4',
+        self.controller_mcm = mc.Controller(which_port='COM4',
                                         stages=('ZFM2020', 'ZFM2020', 'ZFM2020'),
                                         reverse=(False, False, False),
                                         verbose=True,
                                         very_verbose=False)
+        #set all the counters for the stage in 0
+        for channel in range(3):
+            self.controller_mcm._set_encoder_counts_to_zero(channel)
+
         self.initUI()
 
     def initUI(self):
         
         # Create timer
         self.timer = QTimer()
-        self.timer.timeout.connect(self.print_values)
+        #self.timer.timeout.connect(self.print_values)
         self.timer.start(1000)  # Update every 1000 ms
 
         self.setWindowTitle('LSM Control')
@@ -39,23 +43,16 @@ class MicroscopeControlGUI(QWidget):
         self.image_label.setAlignment(Qt.AlignCenter)
 
         # Sliders for velocity and position
-        self.x_slider, self.x_text = self.create_slider_with_text('X Position (um)', -10000, 10000, 0)
-        self.y_slider, self.y_text = self.create_slider_with_text('Y Position (um)', -10000, 10000, 0)
-        self.z_slider, self.z_text = self.create_slider_with_text('Z Position (um)', -10000, 10000, 0)
+        self.x_slider, self.x_text = self.create_slider_with_text('X Position (um)', -10000, 10000, 0, self.move_stage, channel = 0)
+        self.y_slider, self.y_text = self.create_slider_with_text('Y Position (um)', -10000, 10000, 0, self.move_stage, channel = 1)
+        self.z_slider, self.z_text = self.create_slider_with_text('Z Position (um)', -10000, 10000, 0, self.move_stage, channel = 2)
 
         # Slider for current value
-        self.current_slider, self.current_text = self.create_slider_with_text('Current', -100, 100, 0)
+        self.current_slider, self.current_text = self.create_slider_with_text('Current', -100, 100, 0, self.do_nothing)
 
         # Sliders for motor frequency and amplitude
-        self.frequency_slider, self.frequency_text = self.create_slider_with_text('Frequency', -100, 100, 0)
-        self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', -100, 100, 0)
-
-        # add callback functions for sliders
-        #self.x_slider.mouseReleaseEvent.connect(self.sliderChanged)  # Use sliderReleased signal instead
-        self.x_slider.event()
-        def sliderChanged(self):
-            value = self.slider.value()
-            print(f"Slider Value: {value}")
+        self.frequency_slider, self.frequency_text = self.create_slider_with_text('Frequency', -100, 100, 0, self.do_nothing)
+        self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', -100, 100, 0, self.do_nothing)
 
         # Text fields for manual input
         self.exposure_text = self.create_text_input('Exposure')
@@ -89,7 +86,10 @@ class MicroscopeControlGUI(QWidget):
 
         self.show()
 
-    def create_slider_with_text(self, label, min_val, max_val, default_val):
+    def do_nothing():
+        print('jeje')
+
+    def create_slider_with_text(self, label, min_val, max_val, default_val, callback, channel = None):
         slider = QSlider(Qt.Horizontal)
         slider.setMinimum(min_val)
         slider.setMaximum(max_val)
@@ -105,10 +105,19 @@ class MicroscopeControlGUI(QWidget):
         hbox.addWidget(slider)
         hbox.addWidget(text_box)
 
+        # Update textbox and slider values if one fo them changed
         slider.valueChanged.connect(lambda value, text_box=text_box: self.update_text_box_from_slider(value, text_box))
         text_box.textChanged.connect(lambda text, slider=slider, min_val=min_val, max_val=max_val: self.update_slider_from_text_box(text, slider, min_val, max_val))
+        
+        # move the stage only when the sluider is released or after pressing enter in the textbox (more safe)
+        if channel is not None:
+            slider.sliderReleased.connect(lambda: callback(channel, slider.value())) 
+            text_box.editingFinished.connect(lambda: callback(channel, slider.value()))  
 
         return hbox, text_box
+    
+    def move_stage(self, channel, value):
+        self.controller_mcm.move_um(channel,value)
 
     def update_text_box_from_slider(self, value, text_box):
         text_box.setText(str(value))
