@@ -13,11 +13,11 @@ class LiveViewGUI(QWidget):
 
     def initUI(self):
         self.setWindowTitle('Live View')
-        self.setGeometry(100, 100, 640, 480)
+        self.setGeometry(100, 100, 400, 400)
 
         # QLabel to display the live video feed
         self.image_label = QLabel(self)
-        self.image_label.setFixedSize(640, 480)
+        #self.image_label.setFixedSize(2048, 2048)
         self.image_label.setAlignment(Qt.AlignCenter)
 
         # Layout setup
@@ -32,7 +32,7 @@ class LiveViewGUI(QWidget):
 
         # Start the camera
         self.camera.sdk.set_delay_exposure_time(0, 'ms', 10, 'ms')
-        self.camera.record(10, mode="fifo")
+        self.camera.record(5, mode="ring buffer")
         self.camera.wait_for_first_image()
 
     def update_image(self):
@@ -46,6 +46,12 @@ class LiveViewGUI(QWidget):
             # Convert the QImage to a QPixmap and display it
             pixmap = QPixmap.fromImage(q_img)
             self.image_label.setPixmap(pixmap)
+
+    def closeEvent(self, event):
+        # This method is called when the window is closed
+        # Close the camera
+        self.camera.close()
+        event.accept()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

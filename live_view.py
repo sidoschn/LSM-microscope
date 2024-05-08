@@ -17,8 +17,8 @@ def update(frame):
 
 with pco.Camera(interface='USB 3.0') as cam:
     cam.sdk.set_delay_exposure_time(0, 'ms', 10, 'ms')
-    cam.record(10, mode="fifo")
+    cam.record(5,mode="ring buffer")
     cam.wait_for_first_image()
 
-    ani = FuncAnimation(fig, update, frames=range(200), interval=10, blit=True) 
+    ani = FuncAnimation(fig, update, frames=41) 
     plt.show()
