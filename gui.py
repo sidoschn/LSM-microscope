@@ -1,12 +1,14 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QCheckBox, QFrame
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt, QTimer
 import MCM300 as mc
+import pco
 
 class MicroscopeControlGUI(QWidget):
     def __init__(self):
         super().__init__()
+        #Init the stage
         self.controller_mcm = mc.Controller(which_port='COM4',
                                         stages=('ZFM2020', 'ZFM2020', 'ZFM2020'),
                                         reverse=(False, False, False),
@@ -15,32 +17,38 @@ class MicroscopeControlGUI(QWidget):
         #set all the counters for the stage in 0
         for channel in range(3):
             self.controller_mcm._set_encoder_counts_to_zero(channel)
+        
+        # Initialize the camera
+        self.camera = pco.Camera(interface='USB 3.0')  
 
         self.initUI()
 
     def initUI(self):
         
-        # Create timer
-        self.timer = QTimer()
-        #self.timer.timeout.connect(self.print_values)
-        self.timer.start(1000)  # Update every 1000 ms
-
         self.setWindowTitle('LSM Control')
 
-        self.line_label = QLabel(self)
-        self.line_label.setFrameShape(QFrame.HLine)  # Set frame shape to horizontal line
-        self.line_label.setStyleSheet("QLabel { border: 2px solid black; }")
-        self.line_label.setGeometry(10, 100, self.width()-10, 1)  # Set position and size of the line
+        # self.line_label = QLabel(self)
+        # self.line_label.setFrameShape(QFrame.HLine)  # Set frame shape to horizontal line
+        # self.line_label.setStyleSheet("QLabel { border: 2px solid black; }")
+        # self.line_label.setGeometry(10, 100, self.width()-10, 1)  # Set position and size of the line
 
-        self.setWindowTitle('PyQt5 Horizontal Line Example')
-        self.setGeometry(300, 300,  500, 200)
-
-
-
-        # Image display
-        self.image_label = QLabel()
-        self.image_label.setFixedSize(400, 300)
+        # self.setWindowTitle('PyQt5 Horizontal Line Example')
+        # self.setGeometry(300, 300,  500, 200)
+        
+        # QLabel to display the live video feed
+        self.image_label = QLabel(self)
+        self.image_label.setFixedSize(640, 480)
         self.image_label.setAlignment(Qt.AlignCenter)
+
+        # Create a QTimer for updating the image label
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_image)
+        self.timer.start(100)  # Update every 100 ms
+
+        # Start the camera
+        self.camera.sdk.set_delay_exposure_time(0, 'ms', 10, 'ms')
+        self.camera.record(10, mode="fifo")
+        self.camera.wait_for_first_image()
 
         # Sliders for velocity and position
         self.x_slider, self.x_text = self.create_slider_with_text('X Position (um)', -10000, 10000, 0, self.move_stage, channel = 0)
@@ -85,6 +93,18 @@ class MicroscopeControlGUI(QWidget):
         self.setLayout(vbox)
 
         self.show()
+
+    def update_image(self):
+        # Get the latest frame from the camera
+        img, _ = self.camera.image()
+        if img is not None:
+            # Convert the frame to a QImage
+            height, width = img.shape
+            q_img = QImage(img.data, width, height, QImage.Format_Grayscale8)
+
+            # Convert the QImage to a QPixmap and display it
+            pixmap = QPixmap.fromImage(q_img)
+            self.image_label.setPixmap(pixmap)
 
     def do_nothing():
         print('jeje')
@@ -148,9 +168,9 @@ class MicroscopeControlGUI(QWidget):
         # Callback for automatic contrast correction
         pass
     
-    def resizeEvent(self, event):
-      # Update the line's geometry when the window is resized
-      self.line_label.setGeometry(10, 100, self.width() - 10, 1)
+    # def resizeEvent(self, event):
+    #   # Update the line's geometry when the window is resized
+    #   self.line_label.setGeometry(10, 100, self.width() - 10, 1)
 
     def print_values(self):
       # Print values of GUI components
