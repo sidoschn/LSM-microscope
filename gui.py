@@ -4,6 +4,7 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt, QTimer
 import MCM300 as mc
 import pco
+import threading
 
 class MicroscopeControlGUI(QWidget):
     def __init__(self):
@@ -26,14 +27,6 @@ class MicroscopeControlGUI(QWidget):
     def initUI(self):
         
         self.setWindowTitle('LSM Control')
-
-        # self.line_label = QLabel(self)
-        # self.line_label.setFrameShape(QFrame.HLine)  # Set frame shape to horizontal line
-        # self.line_label.setStyleSheet("QLabel { border: 2px solid black; }")
-        # self.line_label.setGeometry(10, 100, self.width()-10, 1)  # Set position and size of the line
-
-        # self.setWindowTitle('PyQt5 Horizontal Line Example')
-        # self.setGeometry(300, 300,  500, 200)
         
         # QLabel to display the live video feed
         self.image_label = QLabel(self)
@@ -47,7 +40,7 @@ class MicroscopeControlGUI(QWidget):
 
         # Start the camera
         self.camera.sdk.set_delay_exposure_time(0, 'ms', 10, 'ms')
-        self.camera.record(10, mode="fifo")
+        self.camera.record(5, mode="ring buffer")
         self.camera.wait_for_first_image()
 
         # Sliders for velocity and position
@@ -105,6 +98,12 @@ class MicroscopeControlGUI(QWidget):
             # Convert the QImage to a QPixmap and display it
             pixmap = QPixmap.fromImage(q_img)
             self.image_label.setPixmap(pixmap)
+    
+    def closeEvent(self, event):
+        # This method is called when the window is closed
+        # Close the camera
+        self.camera.close()
+        event.accept()
 
     def do_nothing():
         print('jeje')
@@ -137,7 +136,9 @@ class MicroscopeControlGUI(QWidget):
         return hbox, text_box
     
     def move_stage(self, channel, value):
-        self.controller_mcm.move_um(channel,value)
+        #self.controller_mcm.move_um(channel,value)
+        thread = threading.Thread(target=self.controller_mcm.move_um, args=(channel, value))
+        thread.start()
 
     def update_text_box_from_slider(self, value, text_box):
         text_box.setText(str(value))

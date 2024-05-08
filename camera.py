@@ -41,7 +41,7 @@ class LiveViewGUI(QWidget):
         if img is not None:
             # Convert the frame to a QImage
             height, width = img.shape
-            q_img = QImage(img.data, width, height, QImage.Format_Grayscale8)
+            q_img = QImage(img.data, width, height, QImage.Format_Grayscale16)
 
             # Convert the QImage to a QPixmap and display it
             pixmap = QPixmap.fromImage(q_img)
