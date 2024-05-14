@@ -1,18 +1,28 @@
 #include <Arduino.h>
-
-// put function declarations here:
-int myFunction(int, int);
+#include <Arduino_FreeRTOS.h>
+#include <semphr.h>
+#include <queue.h>
+#include "motor.h"
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  Serial.begin(115200);
+  Serial.setTimeout(10); // This time might be increased if the string is large
+
+  init_motor();
+  
+  // Create task  
+  xTaskCreate(
+    task_move_motor
+    ,  "Move motor according to amplitude and acceleration parameters"   
+    ,  128  // stack size
+    ,  NULL
+    ,  2  // Priority 
+    ,  NULL );
+
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
-}
-
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+void loop(){
+  // Hola mundo
+  // Hallo welt
+  // Hello world
 }
