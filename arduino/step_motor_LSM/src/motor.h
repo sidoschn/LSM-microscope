@@ -2,6 +2,7 @@
 #include <Arduino_FreeRTOS.h>
 #include <TMC2130Stepper.h>
 #include <AccelStepper.h>
+#include "serial_comm.h"
 
 #define EN_PIN    7  
 #define DIR_PIN   8  

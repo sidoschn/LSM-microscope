@@ -67,8 +67,8 @@ class MicroscopeControlGUI(QWidget):
         self.current_slider, self.current_text = self.create_slider_with_text('Current', -300, 300, 0, self.change_optotune_current)
 
         # Sliders for motor frequency and amplitude
-        self.frequency_slider, self.frequency_text = self.create_slider_with_text('Frequency', -100, 100, 0, self.send_acc_serial_command)
-        self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', -100, 100, 0, self.send_width_serial_command)
+        self.frequency_slider, self.frequency_text = self.create_slider_with_text('Acceleration', 1000, 10000, 1000, self.send_acc_serial_command)
+        self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 50, 500, 100, self.send_width_serial_command)
 
         # Text fields for manual input
         self.exposure_text = self.create_text_input('Exposure')
