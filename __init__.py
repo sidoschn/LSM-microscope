@@ -5,6 +5,8 @@ from PyQt5.QtCore import Qt, QTimer
 import MCM300 as mc
 import pco
 import threading
+import serial
+import time
 from optotune_lens import Lens
 
 class MicroscopeControlGUI(QWidget):
@@ -31,6 +33,9 @@ class MicroscopeControlGUI(QWidget):
         print('Lens serial number:', self.lens.lens_serial)
         print('Lens temperature:', self.lens.get_temperature())
         self.lens.to_current_mode()
+
+        # Init arduino serial communication
+        self.arduino = serial.Serial(port="COM6", baudrate=115200, timeout=1)
 
         self.initUI()
 
@@ -62,8 +67,8 @@ class MicroscopeControlGUI(QWidget):
         self.current_slider, self.current_text = self.create_slider_with_text('Current', -300, 300, 0, self.change_optotune_current)
 
         # Sliders for motor frequency and amplitude
-        self.frequency_slider, self.frequency_text = self.create_slider_with_text('Frequency', -100, 100, 0, self.do_nothing)
-        self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', -100, 100, 0, self.do_nothing)
+        self.frequency_slider, self.frequency_text = self.create_slider_with_text('Frequency', -100, 100, 0, self.send_acc_serial_command)
+        self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', -100, 100, 0, self.send_width_serial_command)
 
         # Text fields for manual input
         self.exposure_text = self.create_text_input('Exposure')
@@ -115,9 +120,6 @@ class MicroscopeControlGUI(QWidget):
         self.camera.close()
         event.accept()
 
-    def do_nothing():
-        print('jeje')
-
     def create_slider_with_text(self, label, min_val, max_val, default_val, callback, channel = None):
         slider = QSlider(Qt.Horizontal)
         slider.setMinimum(min_val)
@@ -156,6 +158,17 @@ class MicroscopeControlGUI(QWidget):
         thread = threading.Thread(target=self.lens.set_current, args=([value]))
         thread.start()
 
+    
+    def send_acc_serial_command(self,value):
+        command = "a?"+str(value)
+        self.arduino.write(bytes(command, 'utf-8'))
+        time.sleep(0.5)  
+
+    def send_width_serial_command(self,value):
+        command = "w?"+str(value)
+        self.arduino.write(bytes(command, 'utf-8'))
+        time.sleep(0.5)  
+
     def update_text_box_from_slider(self, value, text_box):
         text_box.setText(str(value))
 
@@ -184,24 +197,21 @@ class MicroscopeControlGUI(QWidget):
     def auto_contrast(self, state):
         # Callback for automatic contrast correction
         pass
-    
-    # def resizeEvent(self, event):
-    #   # Update the line's geometry when the window is resized
-    #   self.line_label.setGeometry(10, 100, self.width() - 10, 1)
 
     def print_values(self):
-      # Print values of GUI components
-      print("X Position:", self.x_text.text())
-      print("Y Position:", self.y_text.text())
-      print("Z Position:", self.z_text.text())
-      print("Current:", self.current_text.text())
-      print("Frequency:", self.frequency_text.text())
-      print("Amplitude:", self.amplitude_text.text())
-      print("Exposure:", self.exposure_text.itemAt(1).widget().text())
-      print("Alpha:", self.alpha_text.itemAt(1).widget().text())
-      print("Auto contrast:", self.auto_contrast_checkbox.isChecked())
+        # Print values of GUI components
+        print("X Position:", self.x_text.text())
+        print("Y Position:", self.y_text.text())
+        print("Z Position:", self.z_text.text())
+        print("Current:", self.current_text.text())
+        print("Frequency:", self.frequency_text.text())
+        print("Amplitude:", self.amplitude_text.text())
+        print("Exposure:", self.exposure_text.itemAt(1).widget().text())
+        print("Alpha:", self.alpha_text.itemAt(1).widget().text())
+        print("Auto contrast:", self.auto_contrast_checkbox.isChecked())
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = MicroscopeControlGUI()
+    window = MicroscopeControlGUI()      
     sys.exit(app.exec_())
