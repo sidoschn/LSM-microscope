@@ -22,6 +22,17 @@ Once you are in the environment, you will need to install the required libraries
 
 To deactivate the environment and return to the global Python environment, simply use the `deactivate` command.
 
+## Hardware
+
+The software of the LSM controll the following modules:
+
+- Thorlabs XYZ stage MCM3001
+- Optotune Lens EL-16-40-TC (Lense Driver 4i)
+- PCO CMOS Edge 4.2 SUB camera
+- [JSS-step motor 42HS series](https://www.jss-motor.com/product/nema17-42HS-2-phase-1-8%C2%B0-hybrid-stepper-motor.html) (through an arduino UNO and silent step driver TMC2130 V2)
+
+![Pinout step motor driver](images_readme/silent_step_pinout.PNG)
+
 <!-- ## Napari
 
 [Napari](https://napari.org) is a powerful library for n-dimensional image visualisation, annotation, and analysis. Hence, it is the selected tool for this project. To run it, just write the command `napari` in the console after activating the environment. -->
