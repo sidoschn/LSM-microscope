@@ -31,6 +31,13 @@ void setup() {
     ,  2  // Priority 
     ,  NULL );
 
+  xTaskCreate(
+    task_rx_serial
+    ,  "Rx for serial communication"   // name
+    ,  128  // stack size
+    ,  NULL
+    ,  2  // Priority 
+    ,  NULL );
 }
 
 void loop(){
