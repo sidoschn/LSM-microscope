@@ -10,7 +10,7 @@
 #define CS_PIN    10 
 #define SCAN_SPEED 8000
 
-extern int sheetWidth;
+extern int sheet_width;
 extern long headAcceleration;
 
 void init_motor();

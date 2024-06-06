@@ -8,6 +8,8 @@ import threading
 import serial
 import time
 from optotune_lens import Lens
+from pycromanager import Acquisition, multi_d_acquisition_events
+
 
 class MicroscopeControlGUI(QWidget):
     def __init__(self):
@@ -22,9 +24,6 @@ class MicroscopeControlGUI(QWidget):
         for channel in range(3):
             self.controller_mcm._set_encoder_counts_to_zero(channel)
         
-        # Initialize the camera
-        self.camera = pco.Camera(interface='USB 3.0')  
-
         # Init the optotune lens
         self.lens = Lens('COM5', debug=False)
         print(self.lens.firmware_type)
@@ -42,21 +41,6 @@ class MicroscopeControlGUI(QWidget):
     def initUI(self):
         
         self.setWindowTitle('LSM Control')
-        
-        # QLabel to display the live video feed
-        self.image_label = QLabel(self)
-        self.image_label.setFixedSize(640, 480)
-        self.image_label.setAlignment(Qt.AlignCenter)
-
-        # Create a QTimer for updating the image label
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_image)
-        self.timer.start(100)  # Update every 100 ms
-
-        # Start the camera
-        self.camera.sdk.set_delay_exposure_time(0, 'ms', 10, 'ms')
-        self.camera.record(5, mode="ring buffer")
-        self.camera.wait_for_first_image()
 
         # Sliders for velocity and position
         self.x_slider, self.x_text = self.create_slider_with_text('X Position (um)', -10000, 10000, 0, self.move_stage, channel = 0)
@@ -70,22 +54,13 @@ class MicroscopeControlGUI(QWidget):
         self.frequency_slider, self.frequency_text = self.create_slider_with_text('Acceleration', 1000, 10000, 1000, self.send_acc_serial_command)
         self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 50, 500, 100, self.send_width_serial_command)
 
-        # Text fields for manual input
-        self.exposure_text = self.create_text_input('Exposure')
-        self.alpha_text = self.create_text_input('Alpha')
-
         # Button for manual contrast adjustment
-        self.contrast_button = QPushButton('Manual Contrast')
-        self.contrast_button.clicked.connect(self.manual_contrast)
-        self.contrast_button.clicked
-
-        # Checkbox for automatic contrast correction
-        self.auto_contrast_checkbox = QCheckBox('Automatic Contrast')
-        self.auto_contrast_checkbox.stateChanged.connect(self.auto_contrast)
+        self.save_stack = QPushButton('Start stack')
+        self.save_stack.clicked.connect(self.manual_contrast)
+        self.save_stack.clicked
 
         # Layout setup
         vbox = QVBoxLayout()
-        vbox.addWidget(self.image_label)
         vbox.addStretch(1)
         vbox.addLayout(self.x_slider)
         vbox.addLayout(self.y_slider)
@@ -93,26 +68,11 @@ class MicroscopeControlGUI(QWidget):
         vbox.addLayout(self.current_slider)
         vbox.addLayout(self.frequency_slider)
         vbox.addLayout(self.amplitude_slider)
-        vbox.addLayout(self.exposure_text)
-        vbox.addLayout(self.alpha_text)
-        vbox.addWidget(self.contrast_button)
-        vbox.addWidget(self.auto_contrast_checkbox)
+        #vbox.addLayout(self.save_stack)
 
         self.setLayout(vbox)
 
         self.show()
-
-    def update_image(self):
-        # Get the latest frame from the camera
-        img, _ = self.camera.image()
-        if img is not None:
-            # Convert the frame to a QImage
-            height, width = img.shape
-            q_img = QImage(img.data, width, height, QImage.Format_Grayscale8)
-
-            # Convert the QImage to a QPixmap and display it
-            pixmap = QPixmap.fromImage(q_img)
-            self.image_label.setPixmap(pixmap)
     
     def closeEvent(self, event):
         # This method is called when the window is closed
