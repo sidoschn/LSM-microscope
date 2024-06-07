@@ -1,14 +1,13 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QCheckBox, QFrame
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QCheckBox, QFrame, QGridLayout
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt, QTimer
 import MCM300 as mc
-import pco
 import threading
 import serial
 import time
 from optotune_lens import Lens
-from pycromanager import Acquisition, multi_d_acquisition_events
+from pycromanager import Acquisition, multi_d_acquisition_events, Core
 
 
 class MicroscopeControlGUI(QWidget):
@@ -32,6 +31,14 @@ class MicroscopeControlGUI(QWidget):
         print('Lens serial number:', self.lens.lens_serial)
         print('Lens temperature:', self.lens.get_temperature())
         self.lens.to_current_mode()
+        
+        # Check if umanager is open
+        try:
+            self.core = Core()
+            print(self.core)
+        except:
+            print("Did you open uManager with the proper configuration?")
+
 
         # Init arduino serial communication
         self.arduino = serial.Serial(port="COM6", baudrate=115200, timeout=1)
@@ -42,6 +49,9 @@ class MicroscopeControlGUI(QWidget):
         
         self.setWindowTitle('LSM Control')
 
+        # Create buttons for X, Y, Z control
+        self.create_control_buttons()
+
         # Sliders for velocity and position
         self.x_slider, self.x_text = self.create_slider_with_text('X Position (um)', -10000, 10000, 0, self.move_stage, channel = 0)
         self.y_slider, self.y_text = self.create_slider_with_text('Y Position (um)', -10000, 10000, 0, self.move_stage, channel = 1)
@@ -51,33 +61,32 @@ class MicroscopeControlGUI(QWidget):
         self.current_slider, self.current_text = self.create_slider_with_text('Current', -300, 300, 0, self.change_optotune_current)
 
         # Sliders for motor frequency and amplitude
-        self.frequency_slider, self.frequency_text = self.create_slider_with_text('Acceleration', 1000, 10000, 1000, self.send_acc_serial_command)
-        self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 50, 500, 100, self.send_width_serial_command)
+        self.frequency_slider, self.frequency_text = self.create_slider_with_text('Acceleration', 1000, 15000, 1000, self.send_acc_serial_command)
+        self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 10, 100, 100, self.send_width_serial_command)
 
-        # Button for manual contrast adjustment
-        self.save_stack = QPushButton('Start stack')
-        self.save_stack.clicked.connect(self.manual_contrast)
-        self.save_stack.clicked
+        # Main layout setup
+        main_layout = QVBoxLayout()
 
-        # Layout setup
-        vbox = QVBoxLayout()
-        vbox.addStretch(1)
-        vbox.addLayout(self.x_slider)
-        vbox.addLayout(self.y_slider)
-        vbox.addLayout(self.z_slider)
-        vbox.addLayout(self.current_slider)
-        vbox.addLayout(self.frequency_slider)
-        vbox.addLayout(self.amplitude_slider)
-        #vbox.addLayout(self.save_stack)
+        # Joystick and Z control layout
+        joystick_z_layout = QHBoxLayout()
+        joystick_z_layout.addLayout(self.joystick_layout)
+        joystick_z_layout.addLayout(self.z_layout)
+        main_layout.addLayout(joystick_z_layout)
 
-        self.setLayout(vbox)
+        # Add other components below the joystick and Z controls
+        main_layout.addLayout(self.x_slider)
+        main_layout.addLayout(self.y_slider)
+        main_layout.addLayout(self.z_slider)
+        main_layout.addLayout(self.current_slider)
+        main_layout.addLayout(self.frequency_slider)
+        main_layout.addLayout(self.amplitude_slider)
 
+        self.setLayout(main_layout)
         self.show()
     
     def closeEvent(self, event):
         # This method is called when the window is closed
-        # Close the camera
-        self.camera.close()
+        self.controller_mcm.close()
         event.accept()
 
     def create_slider_with_text(self, label, min_val, max_val, default_val, callback, channel = None):
@@ -109,10 +118,6 @@ class MicroscopeControlGUI(QWidget):
             slider.sliderReleased.connect(lambda: callback(slider.value())) 
 
         return hbox, text_box
-    
-    def move_stage(self, channel, value):
-        thread = threading.Thread(target=self.controller_mcm.move_um, args=(channel, value))
-        thread.start()
 
     def change_optotune_current(self,value):
         thread = threading.Thread(target=self.lens.set_current, args=([value]))
@@ -150,13 +155,6 @@ class MicroscopeControlGUI(QWidget):
 
         return hbox
 
-    def manual_contrast(self):
-        # Callback for manual contrast adjustment
-        pass
-
-    def auto_contrast(self, state):
-        # Callback for automatic contrast correction
-        pass
 
     def print_values(self):
         # Print values of GUI components
@@ -169,6 +167,53 @@ class MicroscopeControlGUI(QWidget):
         print("Exposure:", self.exposure_text.itemAt(1).widget().text())
         print("Alpha:", self.alpha_text.itemAt(1).widget().text())
         print("Auto contrast:", self.auto_contrast_checkbox.isChecked())
+
+
+    def create_control_buttons(self):
+        self.joystick_layout = QGridLayout()
+        self.z_layout = QVBoxLayout()
+
+        # X and Y control buttons
+        up_button = QPushButton('↑')
+        up_button.clicked.connect(lambda: self.move_stage_2('Y', 1))
+        
+        down_button = QPushButton('↓')
+        down_button.clicked.connect(lambda: self.move_stage_2('Y', -1))
+        
+        left_button = QPushButton('←')
+        left_button.clicked.connect(lambda: self.move_stage_2('X', -1))
+        
+        right_button = QPushButton('→')
+        right_button.clicked.connect(lambda: self.move_stage_2('X', 1))
+        
+        center_label = QLabel('Joystick')
+
+        # Arrange the joystick buttons
+        self.joystick_layout.addWidget(up_button, 0, 1)
+        self.joystick_layout.addWidget(left_button, 1, 0)
+        self.joystick_layout.addWidget(center_label, 1, 1)
+        self.joystick_layout.addWidget(right_button, 1, 2)
+        self.joystick_layout.addWidget(down_button, 2, 1)
+
+        # Z control buttons
+        z_up_button = QPushButton('Z↑')
+        z_up_button.clicked.connect(lambda: self.move_stage_2('Z', 1))
+        
+        z_down_button = QPushButton('Z↓')
+        z_down_button.clicked.connect(lambda: self.move_stage_2('Z', -1))
+
+        # Arrange the Z buttons
+        self.z_layout.addWidget(z_up_button)
+        self.z_layout.addWidget(z_down_button)
+        self.z_layout.addStretch(1)  # Add stretch to align buttons to the top
+ 
+    def move_stage(self, channel, value):
+        thread = threading.Thread(target=self.controller_mcm._legalize_move_um, args=(channel, value, False))
+        thread.start()
+
+    def move_stage_2(self, axis, direction):
+        # Implement your stage movement logic here
+        print(f"Moving {axis} axis {'positive' if direction > 0 else 'negative'}")
 
 
 if __name__ == '__main__':
