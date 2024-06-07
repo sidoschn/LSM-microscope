@@ -185,7 +185,7 @@ class Controller:
                 self.name, channel, self.position_um[channel]))
         return self.position_um[channel]
 
-    def move_um(self, channel, move_um, relative=True, block=True):
+    def move_um(self, channel, move_um, relative, block=True):
         legal_move_um = self._legalize_move_um(channel, move_um, relative)
         if self.verbose:
             print('%s(ch%s): moving to position_um = %0.2f'%(
@@ -193,7 +193,7 @@ class Controller:
         encoder_counts = self._um_to_encoder_counts(channel, legal_move_um)
         self._move_to_encoder_count(channel, encoder_counts, block)
         return legal_move_um
-
+    
     def close(self):
         if self.verbose: print("%s: closing..."%self.name, end=' ')
         self.port.close()

@@ -49,6 +49,8 @@ class MicroscopeControlGUI(QWidget):
         
         self.setWindowTitle('LSM Control')
 
+        self.label_joystick = QLabel('10 um steps for sample stage')
+
         # Create buttons for X, Y, Z control
         self.create_control_buttons()
 
@@ -70,7 +72,8 @@ class MicroscopeControlGUI(QWidget):
         # Joystick and Z control layout
         joystick_z_layout = QHBoxLayout()
         joystick_z_layout.addLayout(self.joystick_layout)
-        joystick_z_layout.addLayout(self.z_layout)
+        
+        main_layout.addWidget(self.label_joystick)
         main_layout.addLayout(joystick_z_layout)
 
         # Add other components below the joystick and Z controls
@@ -171,49 +174,48 @@ class MicroscopeControlGUI(QWidget):
 
     def create_control_buttons(self):
         self.joystick_layout = QGridLayout()
-        self.z_layout = QVBoxLayout()
+        #self.z_layout = QVBoxLayout()
 
         # X and Y control buttons
-        up_button = QPushButton('↑')
-        up_button.clicked.connect(lambda: self.move_stage_2('Y', 1))
+        up_button = QPushButton('X↑')
+        up_button.clicked.connect(lambda: self.move_stage_2(0, 1))
         
-        down_button = QPushButton('↓')
-        down_button.clicked.connect(lambda: self.move_stage_2('Y', -1))
+        down_button = QPushButton('X↓')
+        down_button.clicked.connect(lambda: self.move_stage_2(0, -1))
         
-        left_button = QPushButton('←')
-        left_button.clicked.connect(lambda: self.move_stage_2('X', -1))
+        left_button = QPushButton('←Y')
+        left_button.clicked.connect(lambda: self.move_stage_2(1, -1))
         
-        right_button = QPushButton('→')
-        right_button.clicked.connect(lambda: self.move_stage_2('X', 1))
+        right_button = QPushButton('Y→')
+        right_button.clicked.connect(lambda: self.move_stage_2(1, 1))
         
-        center_label = QLabel('Joystick')
 
         # Arrange the joystick buttons
         self.joystick_layout.addWidget(up_button, 0, 1)
         self.joystick_layout.addWidget(left_button, 1, 0)
-        self.joystick_layout.addWidget(center_label, 1, 1)
         self.joystick_layout.addWidget(right_button, 1, 2)
         self.joystick_layout.addWidget(down_button, 2, 1)
 
         # Z control buttons
         z_up_button = QPushButton('Z↑')
-        z_up_button.clicked.connect(lambda: self.move_stage_2('Z', 1))
+        z_up_button.clicked.connect(lambda: self.move_stage_2(2, 1))
         
         z_down_button = QPushButton('Z↓')
-        z_down_button.clicked.connect(lambda: self.move_stage_2('Z', -1))
+        z_down_button.clicked.connect(lambda: self.move_stage_2(2, -1))
 
         # Arrange the Z buttons
-        self.z_layout.addWidget(z_up_button)
-        self.z_layout.addWidget(z_down_button)
-        self.z_layout.addStretch(1)  # Add stretch to align buttons to the top
+        self.joystick_layout.addWidget(z_up_button,0,3)
+        self.joystick_layout.addWidget(z_down_button,2,3)
+        
  
     def move_stage(self, channel, value):
-        thread = threading.Thread(target=self.controller_mcm._legalize_move_um, args=(channel, value, False))
+        thread = threading.Thread(target=self.controller_mcm.move_um, args=(channel, value, False))
         thread.start()
 
-    def move_stage_2(self, axis, direction):
+    def move_stage_2(self, channel, direction):
         # Implement your stage movement logic here
-        print(f"Moving {axis} axis {'positive' if direction > 0 else 'negative'}")
+        thread = threading.Thread(target=self.controller_mcm.move_um, args=(channel, 100*direction, True))
+        thread.start()
 
 
 if __name__ == '__main__':
