@@ -4,7 +4,7 @@ try:
     # Check if Micro-Manager is running and ZMQ server is enabled on port 4827
     with Acquisition(directory='/', name='acquisition_name') as acq:
         # Create events for acquisition
-        events = multi_d_acquisition_events(num_time_points=0)
+        events = multi_d_acquisition_events(num_time_points=5)
         print(f"Acquisition events created: {events}")
 
         # Start the acquisition

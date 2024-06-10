@@ -36,8 +36,10 @@ class MicroscopeControlGUI(QWidget):
         try:
             self.core = Core()
             print(self.core)
+            print("micromanager connection established succesfully!")
         except:
             print("Did you open uManager with the proper configuration?")
+            return -1
 
 
         # Init arduino serial communication
@@ -63,8 +65,8 @@ class MicroscopeControlGUI(QWidget):
         self.current_slider, self.current_text = self.create_slider_with_text('Current', -300, 300, 0, self.change_optotune_current)
 
         # Sliders for motor frequency and amplitude
-        self.frequency_slider, self.frequency_text = self.create_slider_with_text('Acceleration', 1000, 15000, 1000, self.send_acc_serial_command)
-        self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 10, 100, 100, self.send_width_serial_command)
+        self.acceleration_slider, self.acceleration_text = self.create_slider_with_text('Acceleration', 1000, 15000, 5000, self.send_acc_serial_command)
+        self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 20, 100, 100, self.send_width_serial_command)
 
         # Main layout setup
         main_layout = QVBoxLayout()
@@ -81,7 +83,7 @@ class MicroscopeControlGUI(QWidget):
         main_layout.addLayout(self.y_slider)
         main_layout.addLayout(self.z_slider)
         main_layout.addLayout(self.current_slider)
-        main_layout.addLayout(self.frequency_slider)
+        main_layout.addLayout(self.acceleration_slider)
         main_layout.addLayout(self.amplitude_slider)
 
         self.setLayout(main_layout)
@@ -165,7 +167,7 @@ class MicroscopeControlGUI(QWidget):
         print("Y Position:", self.y_text.text())
         print("Z Position:", self.z_text.text())
         print("Current:", self.current_text.text())
-        print("Frequency:", self.frequency_text.text())
+        print("Frequency:", self.acceleration_text.text())
         print("Amplitude:", self.amplitude_text.text())
         print("Exposure:", self.exposure_text.itemAt(1).widget().text())
         print("Alpha:", self.alpha_text.itemAt(1).widget().text())
