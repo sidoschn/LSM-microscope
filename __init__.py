@@ -68,6 +68,19 @@ class MicroscopeControlGUI(QWidget):
         self.acceleration_slider, self.acceleration_text = self.create_slider_with_text('Acceleration', 1000, 15000, 5000, self.send_acc_serial_command)
         self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 20, 100, 100, self.send_width_serial_command)
 
+        # Button for stop and start stepper motor operation
+        self.stop_stepper_motor_btn = QPushButton("Stop stepper motor")
+        self.stop_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("h?"))
+
+        self.start_stepper_motor_btn = QPushButton("Start stepper motor")
+        self.start_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("s?"))
+        # Create a layout for the previous btns
+
+        light_house_layout = QGridLayout()
+        light_house_layout.addWidget(self.stop_stepper_motor_btn,0,0)
+        light_house_layout.addWidget(self.start_stepper_motor_btn,0,1)
+
+
         # Main layout setup
         main_layout = QVBoxLayout()
 
@@ -76,7 +89,7 @@ class MicroscopeControlGUI(QWidget):
         joystick_z_layout.addLayout(self.joystick_layout)
         
         main_layout.addWidget(self.label_joystick)
-        main_layout.addLayout(joystick_z_layout)
+        main_layout.addLayout(joystick_z_layout)        
 
         # Add other components below the joystick and Z controls
         main_layout.addLayout(self.x_slider)
@@ -85,6 +98,7 @@ class MicroscopeControlGUI(QWidget):
         main_layout.addLayout(self.current_slider)
         main_layout.addLayout(self.acceleration_slider)
         main_layout.addLayout(self.amplitude_slider)
+        main_layout.addLayout(light_house_layout)
 
         self.setLayout(main_layout)
         self.show()
@@ -160,20 +174,6 @@ class MicroscopeControlGUI(QWidget):
 
         return hbox
 
-
-    def print_values(self):
-        # Print values of GUI components
-        print("X Position:", self.x_text.text())
-        print("Y Position:", self.y_text.text())
-        print("Z Position:", self.z_text.text())
-        print("Current:", self.current_text.text())
-        print("Frequency:", self.acceleration_text.text())
-        print("Amplitude:", self.amplitude_text.text())
-        print("Exposure:", self.exposure_text.itemAt(1).widget().text())
-        print("Alpha:", self.alpha_text.itemAt(1).widget().text())
-        print("Auto contrast:", self.auto_contrast_checkbox.isChecked())
-
-
     def create_control_buttons(self):
         self.joystick_layout = QGridLayout()
         #self.z_layout = QVBoxLayout()
@@ -215,9 +215,12 @@ class MicroscopeControlGUI(QWidget):
         thread.start()
 
     def move_stage_2(self, channel, direction):
-        # Implement your stage movement logic here
         thread = threading.Thread(target=self.controller_mcm.move_um, args=(channel, 100*direction, True))
         thread.start()
+
+    def send_command_arduino(self,command):
+        self.arduino.write(bytes(command, 'utf-8'))
+        time.sleep(0.5)  
 
 
 if __name__ == '__main__':
