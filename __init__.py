@@ -98,7 +98,11 @@ class MicroscopeControlGUI(QWidget):
 
         # Button for start acquisition
         self.start_acquisition_btn = QPushButton("Start Acquisition")
-        #self.start_acquisition_btn.clicked.connect(self.start_acquisition)
+        self.start_acquisition_btn.clicked.connect(self.start_acquisition)
+
+        # Stop acquisition        
+        self.stop_acquisition_btn = QPushButton("Stop Acquisition")
+        self.stop_acquisition_btn.clicked.connect(self.stop_acquisition)
 
         # Main layout setup
         main_layout = QVBoxLayout()
@@ -131,6 +135,7 @@ class MicroscopeControlGUI(QWidget):
 
         main_layout.addLayout(z_pos_layout)
         main_layout.addWidget(self.start_acquisition_btn)
+        main_layout.addWidget(self.stop_acquisition_btn)
 
         self.setLayout(main_layout)
         self.show()
@@ -272,6 +277,35 @@ class MicroscopeControlGUI(QWidget):
             self.z_max_label.setText(f'Z-Max: {current_z_position}')
         elif position_type == 'min':
             self.z_min_label.setText(f'Z-Min: {current_z_position}')
+
+    def start_acquisition(self):
+        try:
+            z_min = int(self.z_min_label.text().split(": ")[1])
+            z_max = int(self.z_max_label.text().split(": ")[1])
+            z_step = int(self.z_step_text.text())
+        except ValueError:
+            print("Invalid Z values or Z step")
+            return
+
+        self.acquisition_running = True  # Set the running flag to True
+        self.send_command_arduino("s?")  # Start stepper motor
+
+        def move_z():
+            for z in range(z_min, z_max + z_step, z_step):
+                if not self.acquisition_running:
+                    break
+                self.move_stage(2, z)
+                self.update_ui_elements(2, z_step)
+                time.sleep(1)  # Wait for 1 second
+
+            self.send_command_arduino("h?")  # Stop stepper motor
+
+        self.acquisition_thread = threading.Thread(target=move_z)
+        self.acquisition_thread.start()
+
+    def stop_acquisition(self):
+        self.acquisition_running = False
+        self.send_command_arduino("h?")  # Stop stepper motor
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
