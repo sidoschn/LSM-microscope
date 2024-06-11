@@ -38,13 +38,13 @@ class MicroscopeControlGUI(QWidget):
         self.lens.to_current_mode()
         
         # Check if umanager is open
-        try:
-            self.core = Core()
-            print(self.core)
-            print("micromanager connection established succesfully!")
-        except:
-            print("Did you open uManager with the proper configuration?")
-            return -1
+        # try:
+        #     self.core = Core()
+        #     print(self.core)
+        #     print("micromanager connection established succesfully!")
+        # except:
+        #     print("Did you open uManager with the proper configuration?")
+        #     return -1
 
 
         # Init arduino serial communication
@@ -309,11 +309,20 @@ class MicroscopeControlGUI(QWidget):
 
                 time.sleep(1)  # Wait for 1 second for stage to move
                 
-                self.core.set_exposure(10)
-                self.core.snap_image()  # Capture an image
-                image = self.core.get_last_image()  # Get the last captured image along with metadata
-                image = image.reshape((2048, 2048))  # Reshape to 2048x2048
-                grayscale_image = np.clip(image, 50, 290)  # Clip pixel values to the range [0, 200]
+                # self.core.set_exposure(10)
+                # self.core.snap_image()  # Capture an image
+                # image = self.core.get_last_image()  # Get the last captured image along with metadata
+
+                
+                with pco.Camera(interface='USB 3.0') as cam:
+                    cam.sdk.set_delay_exposure_time(0, 'ms', 10, 'ms')
+                    cam.record(mode="sequence")
+                    cam.wait_for_first_image()
+
+                    img, meta = cam.image()
+
+                img = img.reshape((2048, 2048))  # Reshape to 2048x2048
+                grayscale_image = np.clip(img, 50, 290)  # Clip pixel values to the range
                 
                 # Save the grayscale image to a file using imwrite
                 image_path = f"image_{z}.tif"  # Adjust the filename as needed
