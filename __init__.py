@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QCheckBox, QFrame, QGridLayout
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtGui import QPixmap, QImage, QIntValidator
 from PyQt5.QtCore import Qt, QTimer
 import MCM300 as mc
 import threading
@@ -81,6 +81,25 @@ class MicroscopeControlGUI(QWidget):
         light_house_layout.addWidget(self.stop_stepper_motor_btn, 0, 0)
         light_house_layout.addWidget(self.start_stepper_motor_btn, 0, 1)
 
+        # Z max and min position and z step
+        self.z_max_label = QLabel('Z-Max')
+        self.z_max_btn = QPushButton('Set Z-Max')
+        self.z_max_btn.clicked.connect(lambda: self.set_z_position('max'))
+
+        self.z_min_label = QLabel('Z-Min')
+        self.z_min_btn = QPushButton('Set Z-Min')
+        self.z_min_btn.clicked.connect(lambda: self.set_z_position('min'))
+
+        self.z_step_label = QLabel('Z-Step')
+        self.z_step_text = QLineEdit('10')
+        self.z_step_text.setValidator(QIntValidator(1, 500))
+        self.z_step_text.setFixedWidth(50)
+        self.z_step_text.setAlignment(Qt.AlignCenter)
+
+        # Button for start acquisition
+        self.start_acquisition_btn = QPushButton("Start Acquisition")
+        #self.start_acquisition_btn.clicked.connect(self.start_acquisition)
+
         # Main layout setup
         main_layout = QVBoxLayout()
 
@@ -100,11 +119,26 @@ class MicroscopeControlGUI(QWidget):
         main_layout.addLayout(amplitude_layout)
         main_layout.addLayout(light_house_layout)
 
+        # Z position buttons and step layout
+        z_pos_layout = QHBoxLayout()
+
+        z_pos_layout.addWidget(self.z_max_label)
+        z_pos_layout.addWidget(self.z_max_btn)
+        z_pos_layout.addWidget(self.z_min_label)
+        z_pos_layout.addWidget(self.z_min_btn)
+        z_pos_layout.addWidget(self.z_step_label)
+        z_pos_layout.addWidget(self.z_step_text)
+
+        main_layout.addLayout(z_pos_layout)
+        main_layout.addWidget(self.start_acquisition_btn)
+
         self.setLayout(main_layout)
         self.show()
 
     def closeEvent(self, event):
         # This method is called when the window is closed
+        self.send_command_arduino("h?")    # to stop the stepper motor
+        self.arduino.close()
         self.controller_mcm.close()
         event.accept()
 
@@ -231,6 +265,13 @@ class MicroscopeControlGUI(QWidget):
         self.arduino.write(bytes(command, 'utf-8'))
         time.sleep(0.5)  
 
+
+    def set_z_position(self, position_type):
+        current_z_position = self.z_slider.value()
+        if position_type == 'max':
+            self.z_max_label.setText(f'Z-Max: {current_z_position}')
+        elif position_type == 'min':
+            self.z_min_label.setText(f'Z-Min: {current_z_position}')
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
