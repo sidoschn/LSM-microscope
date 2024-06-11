@@ -10,7 +10,7 @@ from optotune_lens import Lens
 from pycromanager import Acquisition, multi_d_acquisition_events, Core
 
 
-default_um_btn_move = 100
+default_um_btn_move = 10
 
 class MicroscopeControlGUI(QWidget):
     def __init__(self):
@@ -52,7 +52,7 @@ class MicroscopeControlGUI(QWidget):
     def initUI(self):
         self.setWindowTitle('LSM Control')
 
-        self.label_joystick = QLabel('100 um steps for sample stage')
+        self.label_joystick = QLabel('10 um steps for sample stage')
 
         # Create buttons for X, Y, Z control
         self.create_control_buttons()
@@ -174,6 +174,7 @@ class MicroscopeControlGUI(QWidget):
         else:
             # General callback function
             slider.sliderReleased.connect(lambda: callback(slider.value()))
+            text_box.editingFinished.connect(lambda: callback(slider.value()))
 
         return hbox, slider, text_box
 
@@ -291,11 +292,12 @@ class MicroscopeControlGUI(QWidget):
         self.send_command_arduino("s?")  # Start stepper motor
 
         def move_z():
-            for z in range(z_min, z_max + z_step, z_step):
+            for z in range(z_min, z_max+z_step, z_step):
                 if not self.acquisition_running:
                     break
                 self.move_stage(2, z)
-                self.update_ui_elements(2, z_step)
+                if not z == z_min:
+                    self.update_ui_elements(2, z_step) # do not add a delta the first time
                 time.sleep(1)  # Wait for 1 second
 
             self.send_command_arduino("h?")  # Stop stepper motor
