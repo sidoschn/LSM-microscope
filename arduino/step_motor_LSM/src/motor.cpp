@@ -30,7 +30,7 @@ void init_motor() {
 void task_move_motor(void *pvParameters) {
   command_t received_command;
   bool first_move = true;
-  bool start_movement = false;
+  bool allow_movement = false;
 
   while(1)
   {
@@ -43,17 +43,17 @@ void task_move_motor(void *pvParameters) {
       }else if(received_command.command == "s"){  // Start the stepper motor movement
         stepper.enableOutputs();
         stepper.setCurrentPosition(0);
-        start_movement = true;
+        allow_movement = true;
         first_move = true;
       }else if(received_command.command == "h"){  // Stop the stepper motor
         stepper.stop();
         stepper.disableOutputs();
-        start_movement = false;
+        allow_movement = false;
       }
       
     }
 
-    if(start_movement){
+    if(allow_movement){
       if (stepper.distanceToGo() == 0) {
         if (first_move){
           stepper.moveTo(sheet_width/2);
