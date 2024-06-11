@@ -97,6 +97,10 @@ class MicroscopeControlGUI(QWidget):
         self.z_step_text.setAlignment(Qt.AlignCenter)
 
         # Button for start acquisition
+        self.set_encoders_to_cero_btn = QPushButton("Set to cero encoders sample stage")
+        self.set_encoders_to_cero_btn.clicked.connect(self.set_encoders_to_cero)
+
+        # Button for start acquisition
         self.start_acquisition_btn = QPushButton("Start Acquisition")
         self.start_acquisition_btn.clicked.connect(self.start_acquisition)
 
@@ -134,6 +138,7 @@ class MicroscopeControlGUI(QWidget):
         z_pos_layout.addWidget(self.z_step_text)
 
         main_layout.addLayout(z_pos_layout)
+        main_layout.addWidget(self.set_encoders_to_cero_btn)
         main_layout.addWidget(self.start_acquisition_btn)
         main_layout.addWidget(self.stop_acquisition_btn)
 
@@ -308,6 +313,19 @@ class MicroscopeControlGUI(QWidget):
     def stop_acquisition(self):
         self.acquisition_running = False
         self.send_command_arduino("h?")  # Stop stepper motor
+
+    def set_encoders_to_cero(self):
+        #set all the counters for the stage in 0
+        for channel in range(3):
+            self.controller_mcm._set_encoder_counts_to_zero(channel)
+        self.x_text.setText(str(0))
+        self.x_slider.setValue(0)
+
+        self.y_text.setText(str(0))
+        self.y_slider.setValue(0)
+
+        self.z_text.setText(str(0))
+        self.z_slider.setValue(0)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
