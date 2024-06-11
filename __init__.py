@@ -7,7 +7,10 @@ import threading
 import serial
 import time
 from optotune_lens import Lens
-from pycromanager import Acquisition, multi_d_acquisition_events, Core
+from pycromanager import  Core
+from tifffile import imwrite 
+import numpy as np
+import pco
 
 
 default_um_btn_move = 10
@@ -303,12 +306,24 @@ class MicroscopeControlGUI(QWidget):
                 self.move_stage(2, z)
                 if not z == z_min:
                     self.update_ui_elements(2, z_step) # do not add a delta the first time
-                time.sleep(1)  # Wait for 1 second
+
+                time.sleep(1)  # Wait for 1 second for stage to move
+                
+                self.core.set_exposure(10)
+                self.core.snap_image()  # Capture an image
+                image = self.core.get_last_image()  # Get the last captured image along with metadata
+                image = image.reshape((2048, 2048))  # Reshape to 2048x2048
+                grayscale_image = np.clip(image, 50, 290)  # Clip pixel values to the range [0, 200]
+                
+                # Save the grayscale image to a file using imwrite
+                image_path = f"image_{z}.tif"  # Adjust the filename as needed
+                imwrite(image_path, grayscale_image.astype(np.uint8))  # Save the image using imwrite
 
             self.send_command_arduino("h?")  # Stop stepper motor
 
         self.acquisition_thread = threading.Thread(target=move_z)
         self.acquisition_thread.start()
+
 
     def stop_acquisition(self):
         self.acquisition_running = False
