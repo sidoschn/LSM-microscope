@@ -340,10 +340,20 @@ class MicroscopeControlGUI(QMainWindow):
 
                 img, meta = self.cam.image()
                 img = img.reshape((2048, 2048))
-                grayscale_image = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
                 
+    
+                # Apply the vmin and vmax normalization
+                img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
+
+                # Scale the image to the range of uint16 (0 to 65535)
+                img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
+
+                # Convert to uint16
+                grayscale_image_uint16 = img_scaled.astype(np.uint16)
+
+                # Save the image
                 image_path = f"image_{z}.tif"
-                imwrite(image_path, grayscale_image.astype(np.uint8))
+                imwrite(image_path, grayscale_image_uint16)
 
             self.send_command_arduino("h?")
 
