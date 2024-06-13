@@ -87,14 +87,25 @@ class MicroscopeControlGUI(QMainWindow):
         settings_layout.addLayout(vmin_layout)
         settings_layout.addLayout(vmax_layout)
 
-        # Add additional controls (your existing GUI elements)
+        # Label um step fixed size
         self.label_joystick = QLabel('10 um steps for sample stage')
         self.create_control_buttons()
 
+        # Camera plot thorugh a canvas
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_canvas)
+        self.timer.start(100)  # 10 frames per second
+
+        self.cam.sdk.set_delay_exposure_time(0, 'ms', 10, 'ms')
+        self.cam.record(5, mode="ring buffer")
+        self.cam.wait_for_first_image()
+
+        # Sliders stage
         x_layout, self.x_slider, self.x_text = self.create_slider_with_text('X Position (um)', -10000, 10000, 0, self.move_stage, channel=0)
         y_layout, self.y_slider, self.y_text = self.create_slider_with_text('Y Position (um)', -10000, 10000, 0, self.move_stage, channel=1)
         z_layout, self.z_slider, self.z_text = self.create_slider_with_text('Z Position (um)', -10000, 10000, 0, self.move_stage, channel=2)
 
+        # Sliders optotune lens and arduino stepper motor
         current_layout, self.current_slider, self.current_text = self.create_slider_with_text('Current', -300, 300, 0, self.change_optotune_current)
         acceleration_layout, self.acceleration_slider, self.acceleration_text = self.create_slider_with_text('Acceleration', 1000, 15000, 5000, self.send_acc_serial_command)
         amplitude_layout, self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 20, 100, 100, self.send_width_serial_command)
@@ -108,6 +119,7 @@ class MicroscopeControlGUI(QMainWindow):
         light_house_layout.addWidget(self.stop_stepper_motor_btn, 0, 0)
         light_house_layout.addWidget(self.start_stepper_motor_btn, 0, 1)
 
+        # Acquisition z start/end positions
         self.z_max_label = QLabel('Z-Max')
         self.z_max_btn = QPushButton('Set Z-Max')
         self.z_max_btn.clicked.connect(lambda: self.set_z_position('max'))
@@ -159,14 +171,6 @@ class MicroscopeControlGUI(QMainWindow):
         container.setLayout(main_layout)
         self.setCentralWidget(container)
 
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_canvas)
-        self.timer.start(100)  # 10 frames per second
-
-        self.cam.sdk.set_delay_exposure_time(0, 'ms', 10, 'ms')
-        self.cam.record(5, mode="ring buffer")
-        self.cam.wait_for_first_image()
-
     def update_exposure_time(self):
         try:
             exposure_time = int(self.exposure_input.text())
@@ -189,10 +193,12 @@ class MicroscopeControlGUI(QMainWindow):
         self.canvas.draw()
 
     def closeEvent(self, event):
+        event.accept()
+        self.cam.stop()
         self.cam.close()
         self.controller_mcm.close()
         self.arduino.close()
-        event.accept()
+
 
     def create_slider_with_text(self, label, min_val, max_val, default_val, callback, channel=None):
         slider = QSlider(Qt.Horizontal)
