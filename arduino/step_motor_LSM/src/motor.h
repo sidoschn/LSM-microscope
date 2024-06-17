@@ -1,3 +1,8 @@
+//*********************************** */
+// The motor used is a 42HS48 which have a max 2A current
+// and every step is 1,8°. This means 200 steps
+//*********************************** */
+
 #pragma once
 #include <Arduino_FreeRTOS.h>
 #include <TMC2130Stepper.h>

@@ -107,8 +107,8 @@ class MicroscopeControlGUI(QMainWindow):
 
         # Sliders optotune lens and arduino stepper motor
         current_layout, self.current_slider, self.current_text = self.create_slider_with_text('Current', -300, 300, 0, self.change_optotune_current)
-        acceleration_layout, self.acceleration_slider, self.acceleration_text = self.create_slider_with_text('Acceleration', 1000, 15000, 5000, self.send_acc_serial_command)
-        amplitude_layout, self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 20, 100, 100, self.send_width_serial_command)
+        acceleration_layout, self.acceleration_slider, self.acceleration_text = self.create_slider_with_text('Acceleration', 1, 15000, 5000, self.send_acc_serial_command)
+        amplitude_layout, self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 1, 100, 100, self.send_width_serial_command)
 
         self.stop_stepper_motor_btn = QPushButton("Stop stepper motor")
         self.stop_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("h?"))

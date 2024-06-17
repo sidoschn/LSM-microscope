@@ -1,6 +1,6 @@
 #include "motor.h"
 
-TMC2130Stepper driver = TMC2130Stepper(EN_PIN, DIR_PIN, STEP_PIN, CS_PIN);
+TMC2130Stepper driver_stepper = TMC2130Stepper(EN_PIN, DIR_PIN, STEP_PIN, CS_PIN);
 AccelStepper stepper = AccelStepper(stepper.DRIVER, STEP_PIN, DIR_PIN);
 
 bool dir = true;
@@ -12,11 +12,12 @@ void init_motor() {
     pinMode(CS_PIN, OUTPUT);
     digitalWrite(CS_PIN, HIGH);
    
-    driver.begin();           
-    driver.rms_current(600);    // Set stepper current to 600mA
-    driver.stealthChop(1);      // Enable extremely quiet stepping
-    driver.stealth_autoscale(1);
-    driver.microsteps(16);
+    driver_stepper.begin();           
+    driver_stepper.rms_current(600);    // Set stepper current to 600mA
+    driver_stepper.stealthChop(1);      // Enable extremely quiet stepping
+    driver_stepper.stealth_autoscale(1);
+    driver_stepper.microsteps(32);      // every microstep is 0,056°, if r=10cm -> every microstep is around 0,1 mm
+    driver_stepper.high_speed_mode(1);
 
     stepper.setMaxSpeed(SCAN_SPEED);
     stepper.setAcceleration(headAcceleration); 
@@ -30,7 +31,7 @@ void init_motor() {
 void task_move_motor(void *pvParameters) {
   command_t received_command;
   bool first_move = true;
-  bool allow_movement = false;
+  bool allow_oscilation = false;
 
   while(1)
   {
@@ -43,17 +44,22 @@ void task_move_motor(void *pvParameters) {
       }else if(received_command.command == "s"){  // Start the stepper motor movement
         stepper.enableOutputs();
         stepper.setCurrentPosition(0);
-        allow_movement = true;
+        allow_oscilation = true;
         first_move = true;
       }else if(received_command.command == "h"){  // Stop the stepper motor
-        stepper.stop();
-        stepper.disableOutputs();
-        allow_movement = false;
+        stepper.moveTo(0);
+        allow_oscilation = false;
+      }else if(received_command.command == "r"){  // Move a microstep to the right
+        stepper.enableOutputs();
+        stepper.move(-2);
+      }else if(received_command.command == "l"){  // Move a microstep to the left
+        stepper.enableOutputs();
+        stepper.move(2);        
       }
       
     }
 
-    if(allow_movement){
+    if(allow_oscilation){
       if (stepper.distanceToGo() == 0) {
         if (first_move){
           stepper.moveTo(sheet_width/2);
@@ -66,9 +72,10 @@ void task_move_motor(void *pvParameters) {
         }
         dir = !dir;
       }
-
-      stepper.run();
     }
+    
+    stepper.run();
+    
     vTaskDelay(1/ portTICK_PERIOD_MS);
   }
   
