@@ -4,8 +4,8 @@ TMC2130Stepper driver_stepper = TMC2130Stepper(EN_PIN, DIR_PIN, STEP_PIN, CS_PIN
 AccelStepper stepper = AccelStepper(stepper.DRIVER, STEP_PIN, DIR_PIN);
 
 bool dir = true;
-int sheet_width = 100;
-long headAcceleration = 5000;
+int sheet_width = 30;
+long headAcceleration = 1000;
 
 void init_motor() {
     
@@ -23,9 +23,6 @@ void init_motor() {
     stepper.setAcceleration(headAcceleration); 
     stepper.setEnablePin(EN_PIN);
     stepper.setPinsInverted(false, false, true);
-    //stepper.enableOutputs();
-    // Grab the initial position and set it as the cero position
-    //stepper.setCurrentPosition(0);
 }
 
 void task_move_motor(void *pvParameters) {
@@ -41,23 +38,29 @@ void task_move_motor(void *pvParameters) {
         sheet_width = received_command.value;
       }else if (received_command.command == "a"){ // Change amplitude
         stepper.setAcceleration(received_command.value); 
-      }else if(received_command.command == "s"){  // Start the stepper motor movement
+      }else if(received_command.command == "s"){  // Start the stepper motor oscilation
         stepper.enableOutputs();
         stepper.setCurrentPosition(0);
         allow_oscilation = true;
         first_move = true;
-      }else if(received_command.command == "h"){  // Stop the stepper motor
+      }else if(received_command.command == "p"){  // Pause the stepper motor oscilation
         stepper.moveTo(0);
+        allow_oscilation = false;
+      }else if(received_command.command == "h"){  // Stop the stepper motor oscilation
+        stepper.moveTo(0);
+        stepper.disableOutputs();
+        stepper.stop();
         allow_oscilation = false;
       }else if(received_command.command == "r"){  // Move a microstep to the right
         stepper.enableOutputs();
-        stepper.move(-2);
+        stepper.move(-1);
       }else if(received_command.command == "l"){  // Move a microstep to the left
         stepper.enableOutputs();
-        stepper.move(2);        
+        stepper.move(1);        
       }
       
     }
+
 
     if(allow_oscilation){
       if (stepper.distanceToGo() == 0) {

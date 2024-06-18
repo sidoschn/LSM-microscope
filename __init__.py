@@ -106,18 +106,34 @@ class MicroscopeControlGUI(QMainWindow):
         z_layout, self.z_slider, self.z_text = self.create_slider_with_text('Z Position (um)', -10000, 10000, 0, self.move_stage, channel=2)
 
         # Sliders optotune lens and arduino stepper motor
-        current_layout, self.current_slider, self.current_text = self.create_slider_with_text('Current', -300, 300, 0, self.change_optotune_current)
-        acceleration_layout, self.acceleration_slider, self.acceleration_text = self.create_slider_with_text('Acceleration', 1, 15000, 5000, self.send_acc_serial_command)
-        amplitude_layout, self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 1, 100, 100, self.send_width_serial_command)
+        current_layout, self.current_slider, self.current_text = self.create_slider_with_text('Current', -150, 150, 0, self.change_optotune_current)
+        acceleration_layout, self.acceleration_slider, self.acceleration_text = self.create_slider_with_text('Acceleration', 1, 25000, 1000, self.send_acc_serial_command)
+        amplitude_layout, self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 1, 50, 30, self.send_width_serial_command)
 
-        self.stop_stepper_motor_btn = QPushButton("Stop stepper motor")
-        self.stop_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("h?"))
+        self.pause_stepper_motor_btn = QPushButton("Pause stepper motor")
+        self.pause_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("p?"))
+
         self.start_stepper_motor_btn = QPushButton("Start stepper motor")
         self.start_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("s?"))
 
+        self.move_cw_stepper_motor_btn = QPushButton("Move CW stepper motor")
+        self.move_cw_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("r?"))
+        
+        self.move_ccw_stepper_motor_btn = QPushButton("Move CCW stepper motor")
+        self.move_ccw_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("l?"))
+        
+        self.stop_stepper_motor_btn = QPushButton("STOP stepper motor")
+        self.stop_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("h?"))
+
+
+
+
         light_house_layout = QGridLayout()
-        light_house_layout.addWidget(self.stop_stepper_motor_btn, 0, 0)
+        light_house_layout.addWidget(self.pause_stepper_motor_btn, 0, 0)
         light_house_layout.addWidget(self.start_stepper_motor_btn, 0, 1)
+        light_house_layout.addWidget(self.move_ccw_stepper_motor_btn,1,0)
+        light_house_layout.addWidget(self.move_cw_stepper_motor_btn,1,1)
+        light_house_layout.addWidget(self.stop_stepper_motor_btn)
 
         # Acquisition z start/end positions
         self.z_max_label = QLabel('Z-Max')
