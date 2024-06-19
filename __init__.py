@@ -1,7 +1,7 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QCheckBox, QFrame, QGridLayout, QMainWindow
-from PyQt5.QtGui import QPixmap, QImage, QIntValidator
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QGridLayout, QMainWindow
+from PyQt5.QtGui import QIntValidator
+from PyQt5.QtCore import Qt, QTimer, QMetaObject
 import threading
 import serial
 import time
@@ -94,11 +94,9 @@ class MicroscopeControlGUI(QMainWindow):
         # Camera plot thorugh a canvas
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_canvas)
-        self.timer.start(100)  # 10 frames per second
+        #self.timer.start(100)  # 10 frames per second
 
-        self.cam.sdk.set_delay_exposure_time(0, 'ms', 10, 'ms')
-        self.cam.record(5, mode="ring buffer")
-        self.cam.wait_for_first_image()
+        self.init_live_acquisition()
 
         # Sliders stage
         x_layout, self.x_slider, self.x_text = self.create_slider_with_text('X Position (um)', -10000, 10000, 0, self.move_stage, channel=0)
@@ -340,9 +338,12 @@ class MicroscopeControlGUI(QMainWindow):
         self.joystick_layout.addWidget(z_up_button, 0, 3)
         self.joystick_layout.addWidget(z_down_button, 2, 3)
 
-    def move_stage(self, channel, value):
-        thread = threading.Thread(target=self.controller_mcm.move_um, args=(channel, value, False))
-        thread.start()
+    def move_stage(self, channel, value, blocking = False):
+        if not(blocking):
+            thread = threading.Thread(target=self.controller_mcm.move_um, args=(channel, value, False))
+            thread.start()
+        else:
+            self.controller_mcm.move_um(channel,value,False)
 
     def move_stage_2(self, channel, direction):
         move_value = default_um_btn_move * direction
@@ -373,17 +374,37 @@ class MicroscopeControlGUI(QMainWindow):
         self.acquisition_running = True
         self.send_command_arduino("s?")
 
-        def move_z():
-            for z in range(z_min, z_max + z_step, z_step):
-                if not self.acquisition_running:
-                    break
-                self.move_stage(2, z)
-                if not z == z_min:
-                    self.update_ui_elements(2, z_step)
-                time.sleep(1)
-                
-                # save image
-                self.cam.wait_for_first_image()
+        # Stop the function that update the canvas
+        #QMetaObject.invokeMethod(self.timer, "stop", Qt.QueuedConnection)
+        self.timer.stop()
+
+        # stop the previous recorder and start the new recor method
+        self.cam.stop()
+        self.cam.record()
+        
+        self.cam.sdk.set_delay_exposure_time(0, 'ms', int(self.exposure_input.text()), 'ms')
+
+        # set the camera to software triggering mode
+        self.cam.sdk.set_trigger_mode('software trigger')
+
+        # arm the camera
+        self.cam.sdk.arm_camera()
+
+        # Set recording state to run so I can force a software trigger
+        self.cam.sdk.set_recording_state('on')
+
+
+        for z in range(z_min, z_max + z_step, z_step):
+            if not self.acquisition_running:
+                break
+            self.move_stage(2, z, True)  # here I move the stage but block the other commands
+            if not z == z_min:
+                self.update_ui_elements(2, z_step)
+
+            # Trigger exposure and get the image
+            if(self.cam.sdk.force_trigger()["triggered"] == "successful"):
+
+                self.cam.wait_for_new_image()
 
                 img, meta = self.cam.image()
                 img = img.reshape((2048, 2048))
@@ -401,15 +422,26 @@ class MicroscopeControlGUI(QMainWindow):
                 # Save the image
                 image_path = f"image_{z}.tif"
                 imwrite(image_path, grayscale_image_uint16)
+            else:
+                print(f"Acquisition in position z = {z} um was not possible")
 
-            self.send_command_arduino("h?")
+        # Stop stepper motor
+        self.send_command_arduino("p?")
+        # Restart live acquisition
+        self.init_live_acquisition()
 
-        self.acquisition_thread = threading.Thread(target=move_z)
-        self.acquisition_thread.start()
 
     def stop_acquisition(self):
         self.acquisition_running = False
         self.send_command_arduino("h?")
+    
+    def init_live_acquisition(self):
+        self.cam.sdk.set_recording_state('off')
+        self.cam.sdk.set_trigger_mode('auto sequence')
+        self.cam.sdk.set_delay_exposure_time(0, 'ms', int(self.exposure_input.text()), 'ms')
+        self.cam.record(5, mode="ring buffer")
+        self.cam.wait_for_first_image()
+        self.timer.start(100)
 
     def set_encoders_to_cero(self):
         for channel in range(3):
