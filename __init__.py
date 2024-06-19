@@ -378,51 +378,35 @@ class MicroscopeControlGUI(QMainWindow):
         # Stop the function that update the canvas
         self.timer.stop()
 
-        # stop the previous recorder and start the new record method
+        # stop the previous recorder
         self.cam.stop()
-        self.cam.record()
-        
-        self.cam.sdk.set_delay_exposure_time(0, 'ms', int(self.exposure_input.text()), 'ms')
-
-        # set the camera to software triggering mode
-        self.cam.sdk.set_trigger_mode('software trigger')
-
-        # arm the camera
-        self.cam.sdk.arm_camera()
-
-        # Set recording state to run so I can force a software trigger
-        self.cam.sdk.set_recording_state('on')
 
         for z in range(z_min, z_max + z_step, z_step):
             if not self.acquisition_running:
                 break
-            self.move_stage(2, z, True)  # here I move the stage but block the other commands
+            self.move_stage(2, z, True)  # here I move the stage and block the following commands
             if not z == z_min:
                 self.update_ui_elements(2, z_step)
 
-            # Trigger exposure and get the image if it was succesfull
-            if(self.cam.sdk.force_trigger()["triggered"] == "successful"):
+            # Get a single image
+            self.cam.sdk.set_delay_exposure_time(0, 'ms', int(self.exposure_input.text()), 'ms')
+            self.cam.record()
+            
+            img, meta = self.cam.image()
+            img = img.reshape((2048, 2048))
+            
+            # Apply the vmin and vmax normalization
+            img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
 
-                self.cam.wait_for_new_image()
+            # Scale the image to the range of uint16 (0 to 65535)
+            img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
 
-                img, meta = self.cam.image()
-                img = img.reshape((2048, 2048))
-                
-    
-                # Apply the vmin and vmax normalization
-                img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
+            # Convert to uint16
+            grayscale_image_uint16 = img_scaled.astype(np.uint16)
 
-                # Scale the image to the range of uint16 (0 to 65535)
-                img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
-
-                # Convert to uint16
-                grayscale_image_uint16 = img_scaled.astype(np.uint16)
-
-                # Save the image
-                image_path = f"image_{z}.tif"
-                imwrite(image_path, grayscale_image_uint16)
-            else:
-                print(f"Acquisition in position z = {z} um was not possible")
+            # Save the image
+            image_path = f"image_{z}.tif"
+            imwrite(image_path, grayscale_image_uint16)
 
         # Pause stepper motor
         self.send_command_arduino("p?")
@@ -438,7 +422,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.cam.sdk.set_recording_state('off')
         self.cam.sdk.set_trigger_mode('auto sequence')
         self.cam.sdk.set_delay_exposure_time(0, 'ms', int(self.exposure_input.text()), 'ms')
-        self.cam.record(5, mode="ring buffer")
+        self.cam.record(4, mode="ring buffer")
         self.cam.wait_for_first_image()
         self.timer.start(100)
 
