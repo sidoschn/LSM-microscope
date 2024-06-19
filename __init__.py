@@ -212,6 +212,7 @@ class MicroscopeControlGUI(QMainWindow):
 
     def closeEvent(self, event):
         event.accept()
+        self.timer.stop()
         self.cam.stop()
         self.cam.close()
         self.controller_mcm.close()
@@ -375,10 +376,9 @@ class MicroscopeControlGUI(QMainWindow):
         self.send_command_arduino("s?")
 
         # Stop the function that update the canvas
-        #QMetaObject.invokeMethod(self.timer, "stop", Qt.QueuedConnection)
         self.timer.stop()
 
-        # stop the previous recorder and start the new recor method
+        # stop the previous recorder and start the new record method
         self.cam.stop()
         self.cam.record()
         
@@ -393,7 +393,6 @@ class MicroscopeControlGUI(QMainWindow):
         # Set recording state to run so I can force a software trigger
         self.cam.sdk.set_recording_state('on')
 
-
         for z in range(z_min, z_max + z_step, z_step):
             if not self.acquisition_running:
                 break
@@ -401,7 +400,7 @@ class MicroscopeControlGUI(QMainWindow):
             if not z == z_min:
                 self.update_ui_elements(2, z_step)
 
-            # Trigger exposure and get the image
+            # Trigger exposure and get the image if it was succesfull
             if(self.cam.sdk.force_trigger()["triggered"] == "successful"):
 
                 self.cam.wait_for_new_image()
@@ -425,7 +424,7 @@ class MicroscopeControlGUI(QMainWindow):
             else:
                 print(f"Acquisition in position z = {z} um was not possible")
 
-        # Stop stepper motor
+        # Pause stepper motor
         self.send_command_arduino("p?")
         # Restart live acquisition
         self.init_live_acquisition()
