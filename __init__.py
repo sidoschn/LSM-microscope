@@ -152,10 +152,13 @@ class MicroscopeControlGUI(QMainWindow):
 
         self.set_encoders_to_cero_btn = QPushButton("Set to cero encoders sample stage")
         self.set_encoders_to_cero_btn.clicked.connect(self.set_encoders_to_cero)
-        self.start_acquisition_btn = QPushButton("Start Acquisition")
+        self.start_acquisition_btn = QPushButton("Start Stack Acquisition")
         self.start_acquisition_btn.clicked.connect(self.start_acquisition)
-        self.stop_acquisition_btn = QPushButton("Stop Acquisition")
+        self.stop_acquisition_btn = QPushButton("Stop Stack Acquisition")
         self.stop_acquisition_btn.clicked.connect(self.stop_acquisition)
+
+        self.save_image_btn = QPushButton("Save image")
+        self.save_image_btn.clicked.connect(self.save_image)
 
         settings_layout.addWidget(self.label_joystick)
         settings_layout.addLayout(self.joystick_layout)
@@ -179,6 +182,7 @@ class MicroscopeControlGUI(QMainWindow):
         settings_layout.addWidget(self.set_encoders_to_cero_btn)
         settings_layout.addWidget(self.start_acquisition_btn)
         settings_layout.addWidget(self.stop_acquisition_btn)
+        settings_layout.addWidget(self.save_image_btn)
 
         main_layout.addWidget(settings_widget)
         main_layout.addWidget(self.canvas, stretch=3)  # Make the canvas stretch
@@ -214,6 +218,27 @@ class MicroscopeControlGUI(QMainWindow):
         self.cam.close()
         self.controller_mcm.close()
         self.arduino.close()
+
+    def save_image(self):
+
+        self.cam.wait_for_first_image()
+
+        img, meta = self.cam.image()
+        img = img.reshape((2048, 2048))
+        
+
+        # Apply the vmin and vmax normalization
+        img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
+
+        # Scale the image to the range of uint16 (0 to 65535)
+        img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
+
+        # Convert to uint16
+        grayscale_image_uint16 = img_scaled.astype(np.uint16)
+
+        # Save the image
+        image_path = f"image.tif"
+        imwrite(image_path, grayscale_image_uint16)
 
 
     def create_slider_with_text(self, label, min_val, max_val, default_val, callback, channel=None):
@@ -357,7 +382,7 @@ class MicroscopeControlGUI(QMainWindow):
                     self.update_ui_elements(2, z_step)
                 time.sleep(1)
                 
-                #self.cam.record(mode="sequence")
+                # save image
                 self.cam.wait_for_first_image()
 
                 img, meta = self.cam.image()
