@@ -388,6 +388,13 @@ class MicroscopeControlGUI(QMainWindow):
             if not z == z_min:
                 self.update_ui_elements(2, z_step)
 
+            # ********************************
+
+            # Space for focus interpolation code
+
+            # ********************************
+            self.focus_interpolation()
+
             # Get a single image
             self.cam.sdk.set_delay_exposure_time(0, 'ms', int(self.exposure_input.text()), 'ms')
             self.cam.record()
@@ -425,6 +432,10 @@ class MicroscopeControlGUI(QMainWindow):
         self.cam.record(4, mode="ring buffer")
         self.cam.wait_for_first_image()
         self.timer.start(100)
+
+    def focus_interpolation(self):
+        # TODO
+        return 0
 
     def set_encoders_to_cero(self):
         for channel in range(3):
