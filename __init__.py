@@ -15,6 +15,7 @@ from matplotlib.colors import Normalize
 import matplotlib.pyplot as plt
 
 default_um_btn_move = 10
+lensCalib = np.zeros((2,2))
 
 class MplCanvas(FigureCanvas):
     def __init__(self):
@@ -29,6 +30,7 @@ class MicroscopeControlGUI(QMainWindow):
         super().__init__()
         
         # Initialize components
+        
         self.controller_mcm = mc.Controller(which_port='COM4',
                                         stages=('ZFM2020', 'ZFM2020', 'ZFM2020'),
                                         reverse=(False, False, False),
@@ -40,7 +42,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.lens = Lens('COM5', debug=False)
         self.cam = pco.Camera(interface="USB 3.0")
         self.arduino = serial.Serial(port="COM6", baudrate=115200, timeout=1)
-
+        lensCalib[0]
         self.initUI()
 
     def initUI(self):
@@ -123,7 +125,11 @@ class MicroscopeControlGUI(QMainWindow):
         self.stop_stepper_motor_btn = QPushButton("STOP stepper motor")
         self.stop_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("h?"))
 
+        self.get_Lens_calib_point_btn = QPushButton("Get Lens Calibration Point")
+        self.get_Lens_calib_point_btn.clicked.connect(lambda: self.send_command_arduino("h?"))
 
+        self.clear_Lens_calib_btn = QPushButton("Clear Lens Calibration")
+        self.clear_Lens_calib_btn.clicked.connect(lambda: self.send_command_arduino("h?"))
 
 
         light_house_layout = QGridLayout()
@@ -355,6 +361,30 @@ class MicroscopeControlGUI(QMainWindow):
     def send_command_arduino(self, command):
         self.arduino.write(bytes(command, 'utf-8'))
         time.sleep(0.5)
+
+    def get_Lens_calib_point(self):
+        
+        if ((lensCalib[0,0]+lensCalib[0,1])==0): # check if first row of the matrix has already been filled with data
+            targetRow = 0
+        else:
+            targetRow = 1
+            
+        # get current position
+        # get current lens current
+        # feed it into calib matrix
+        # set calib idicator to green once both lines are filled
+
+        time.sleep(0.5)
+
+    def clear_Lens_calib(self):
+        	
+            
+        lensCalib = np.zeros((2,2)) #reset lens calib to 0,0;0,0
+        
+        # reset calib indicator to uncalibrated
+
+        time.sleep(0.5)
+
 
     def set_z_position(self, position_type):
         current_z_position = self.z_slider.value()
