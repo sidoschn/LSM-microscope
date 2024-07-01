@@ -269,8 +269,8 @@ class MicroscopeControlGUI(QMainWindow):
         return hbox, slider, text_box
 
     def change_optotune_current(self, value):
-        thread = threading.Thread(target=self.lens.set_current, args=([value]))
-        thread.start()
+        optoTuneThread = threading.Thread(target=self.lens.set_current, args=([value]))
+        optoTuneThread.start()
 
     def send_acc_serial_command(self, value):
         command = "a?" + str(value)
@@ -341,15 +341,15 @@ class MicroscopeControlGUI(QMainWindow):
 
     def move_stage(self, channel, value, blocking = False):
         if not(blocking):
-            thread = threading.Thread(target=self.controller_mcm.move_um, args=(channel, value, False))
-            thread.start()
+            MoveStageThread1 = threading.Thread(target=self.controller_mcm.move_um, args=(channel, value, False))
+            MoveStageThread1.start()
         else:
             self.controller_mcm.move_um(channel,value,False)
 
     def move_stage_2(self, channel, direction):
         move_value = default_um_btn_move * direction
-        thread = threading.Thread(target=self.controller_mcm.move_um, args=(channel, default_um_btn_move * direction, True))
-        thread.start()
+        MoveStageThread2 = threading.Thread(target=self.controller_mcm.move_um, args=(channel, default_um_btn_move * direction, True))
+        MoveStageThread2.start()
         self.update_ui_elements(channel, move_value)
 
     def send_command_arduino(self, command):
