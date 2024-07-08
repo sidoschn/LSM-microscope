@@ -233,15 +233,16 @@ class MicroscopeControlGUI(QMainWindow):
         img, meta = self.cam.image()
         img = img.reshape((2048, 2048))
         
+        # clipping and scaling the image data is highly depreceated and is removed
 
-        # Apply the vmin and vmax normalization
-        img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
+        # # Apply the vmin and vmax normalization
+        # img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
 
-        # Scale the image to the range of uint16 (0 to 65535)
-        img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
+        # # Scale the image to the range of uint16 (0 to 65535)
+        # img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
 
         # Convert to uint16
-        grayscale_image_uint16 = img_scaled.astype(np.uint16)
+        grayscale_image_uint16 = img.astype(np.uint16) #todo: check if img.astype is neccessary or clipping the data
 
         # Save the image
         image_path = f"image.tif"
