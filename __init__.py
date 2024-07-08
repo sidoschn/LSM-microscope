@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 
 default_um_btn_move = 10
 lensCalib = np.zeros((2,2))
+bLensCalibrated = False
 
 class MplCanvas(FigureCanvas):
     def __init__(self):
@@ -42,9 +43,9 @@ class MicroscopeControlGUI(QMainWindow):
         self.lens = Lens('COM5', debug=False)
         self.cam = pco.Camera(interface="USB 3.0")
         self.arduino = serial.Serial(port="COM6", baudrate=115200, timeout=1)
-        lensCalib[0]
+        
         self.initUI()
-
+        
     def initUI(self):
         self.setWindowTitle('LSM Control')
 
@@ -130,6 +131,7 @@ class MicroscopeControlGUI(QMainWindow):
 
         self.clear_Lens_calib_btn = QPushButton("Clear Lens Calibration")
         self.clear_Lens_calib_btn.clicked.connect(lambda: self.send_command_arduino("h?"))
+        self.clear_Lens_calib_btn.setDisabled(True)
 
 
         light_house_layout = QGridLayout()
@@ -368,22 +370,30 @@ class MicroscopeControlGUI(QMainWindow):
             targetRow = 0
         else:
             targetRow = 1
-            
-        # get current position
-        # get current lens current
-        # feed it into calib matrix
-        # set calib idicator to green once both lines are filled
 
-        time.sleep(0.5)
+        lensCalib[targetRow,0] = self.controller_mcm.get_position_um(2)   # get current Z position and save it in lens calib matrix
+        lensCalib[targetRow,1] = Lens.get_current() # get current lens current and save it to the calib matrix
+        
+
+        # set calib indicator to yellow once one line is filled
+        self.clear_Lens_calib_btn.setDisabled(False)# enable the clear calibration button
+
+        if targetRow == 1:
+            bLensCalibrated = True # set the calibration flag to be true once two point calibration has been performed
+            # set calib idicator to green once both lines are filled
+            self.get_Lens_calib_point_btn.setDisabled(True) # disable the get calibration point button
+        
+        
+
 
     def clear_Lens_calib(self):
         	
             
         lensCalib = np.zeros((2,2)) #reset lens calib to 0,0;0,0
-        
+        bLensCalibrated = False # reset calibration flag to false
         # reset calib indicator to uncalibrated
-
-        time.sleep(0.5)
+        self.get_Lens_calib_point_btn.setDisabled(False) # re-enable the get calibration point button
+        self.clear_Lens_calib_btn.setDisabled(True) # disable the clear calibration button
 
 
     def set_z_position(self, position_type):
