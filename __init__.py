@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QGridLayout, QMainWindow
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QGridLayout, QMainWindow, QStatusBar, QToolBar, QMainWindow
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtCore import Qt, QTimer, QMetaObject
 import threading
@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 default_um_btn_move = 10
 lensCalib = np.zeros((2,2))
 bLensCalibrated = False
+
 
 class MplCanvas(FigureCanvas):
     def __init__(self):
@@ -193,9 +194,13 @@ class MicroscopeControlGUI(QMainWindow):
         main_layout.addWidget(settings_widget)
         main_layout.addWidget(self.canvas, stretch=3)  # Make the canvas stretch
 
+        #prepare the status bar components
+        self.create_status_bar()
+        
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
+        
 
     def update_exposure_time(self):
         try:
@@ -376,15 +381,25 @@ class MicroscopeControlGUI(QMainWindow):
         lensCalib[targetRow,1] = Lens.get_current() # get current lens current and save it to the calib matrix
         
 
-        # set calib indicator to yellow once one line is filled
+        self.set_calibration_status_indicator(1) # set calib indicator to yellow once one line is filled
         self.clear_Lens_calib_btn.setDisabled(False)# enable the clear calibration button
 
         if targetRow == 1:
             bLensCalibrated = True # set the calibration flag to be true once two point calibration has been performed
-            # set calib idicator to green once both lines are filled
+            self.set_calibration_status_indicator(2) # set calib idicator to green once both lines are filled
             self.get_Lens_calib_point_btn.setDisabled(True) # disable the get calibration point button
         
-        
+    def set_calibration_status_indicator(self, state):
+        match state:
+            case 0:
+                print("lens uncalibrated")
+                self.calib_led_indicator.setStyleSheet("border : 2px solid black; background-color : red")
+            case 1:
+                print("lens calibrating")
+                self.calib_led_indicator.setStyleSheet("border : 2px solid black; background-color : yellow")
+            case 3:
+                print("lens calibrated")
+                self.calib_led_indicator.setStyleSheet("border : 2px solid black; background-color : green")
 
 
     def clear_Lens_calib(self):
@@ -392,7 +407,7 @@ class MicroscopeControlGUI(QMainWindow):
             
         lensCalib = np.zeros((2,2)) #reset lens calib to 0,0;0,0
         bLensCalibrated = False # reset calibration flag to false
-        # reset calib indicator to uncalibrated
+        self.set_calibration_status_indicator(0) # reset calib indicator to uncalibrated
         self.get_Lens_calib_point_btn.setDisabled(False) # re-enable the get calibration point button
         self.clear_Lens_calib_btn.setDisabled(True) # disable the clear calibration button
 
@@ -487,6 +502,16 @@ class MicroscopeControlGUI(QMainWindow):
         self.y_slider.setValue(0)
         self.z_text.setText(str(0))
         self.z_slider.setValue(0)
+
+    def create_status_bar(self):
+        self.calib_led_indicator = QPushButton()
+        self.calib_led_indicator.setStyleSheet("border : 2px solid black; background-color : red")
+        self.calib_led_indicator.setDisabled(True)
+        self.status_bar = QStatusBar()
+        self.status_bar.addPermanentWidget(self.calib_led_indicator)
+        self.status_bar.addPermanentWidget(QLabel("Lens calibration status: "))
+        self.setStatusBar(self.status_bar)
+        self.statusBar
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
