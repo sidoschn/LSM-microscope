@@ -21,6 +21,7 @@ class Window(QMainWindow):
         self.UiComponents()
         self.statusBar.addPermanentWidget(self.button)
         self.statusBar.addPermanentWidget(self.slider)
+        
         # showing all the widgets
         self.show()
  
@@ -45,7 +46,7 @@ class Window(QMainWindow):
         self.slider.setMinimum(-5)
         self.slider.setMaximum(5)
         self.slider.setValue(0)
-        self.slider.valueChanged.connect(self.sliderAction)
+        
  
     # action method
     def clickme(self):
