@@ -535,8 +535,17 @@ class MicroscopeControlGUI(QMainWindow):
         self.calib_led_indicator.setStyleSheet("border : 2px solid black; background-color : red")
         self.calib_led_indicator.setDisabled(True)
         self.status_bar = QStatusBar()
-        self.status_bar.addPermanentWidget(self.calib_led_indicator)
         self.status_bar.addPermanentWidget(QLabel("Lens calibration status: "))
+        self.status_bar.addPermanentWidget(self.calib_led_indicator)
+
+        self.status_bar.addPermanentWidget(QLabel("Current stage position: "))
+        self.status_bar.addPermanentWidget(QLabel("X="))
+        self.status_bar.addPermanentWidget(QLabel("0 ")) #todo: Promote to variable
+        self.status_bar.addPermanentWidget(QLabel("Y="))
+        self.status_bar.addPermanentWidget(QLabel("0 ")) #todo: Promote to variable
+        self.status_bar.addPermanentWidget(QLabel("Z="))
+        self.status_bar.addPermanentWidget(QLabel("0 ")) #todo: Promote to variable
+
         self.setStatusBar(self.status_bar)
         self.statusBar
 
