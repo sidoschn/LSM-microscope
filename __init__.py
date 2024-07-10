@@ -13,10 +13,10 @@ from tifffile import imwrite
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.colors import Normalize
 import matplotlib.pyplot as plt
+import math
 
 default_um_btn_move = 10
-lensCalib = np.zeros((2,2))
-bLensCalibrated = False
+
 lens_diopter = 0 #setting default lens diopter value to 0, centering it in its range (-5,5)
 lens_max_diopter = 5
 lens_min_diopter = -5
@@ -36,6 +36,8 @@ class MicroscopeControlGUI(QMainWindow):
         
         # Initialize components
         
+
+
         self.controller_mcm = mc.Controller(which_port='COM4',
                                         stages=('ZFM2020', 'ZFM2020', 'ZFM2020'),
                                         reverse=(False, False, False),
@@ -47,6 +49,10 @@ class MicroscopeControlGUI(QMainWindow):
         self.lens = Lens('COM5', debug=False)
         self.lens.to_focal_power_mode() # switch lens to focus power mode instead of current mode
         self.lens.set_diopter(lens_diopter) # set diopter to default value
+        
+        self.lensCalib = np.zeros((2,2))
+        self.bLensCalibrated = False
+        
         self.cam = pco.Camera(interface="USB 3.0")
         self.arduino = serial.Serial(port="COM6", baudrate=115200, timeout=1)
         
@@ -113,10 +119,10 @@ class MicroscopeControlGUI(QMainWindow):
         z_layout, self.z_slider, self.z_text = self.create_slider_with_text('Z Position (um)', -10000, 10000, 0, self.move_stage, channel=2)
 
         # Sliders optotune lens and arduino stepper motor
-        current_layout, self.current_slider, self.current_text = self.create_slider_with_text('Diopter', -5, 5, 0, self.change_optotune_diopter) #changed slider from current to focal strength in diopter
+        current_layout, self.current_slider, self.current_text = self.create_slider_with_text('milli Diopter', -5000, 5000, 0, self.change_optotune_diopter) #changed slider from current to focal strength in diopter
         acceleration_layout, self.acceleration_slider, self.acceleration_text = self.create_slider_with_text('Acceleration', 1, 25000, 1000, self.send_acc_serial_command)
         amplitude_layout, self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 1, 50, 30, self.send_width_serial_command)
-
+        
         self.pause_stepper_motor_btn = QPushButton("Pause stepper motor")
         self.pause_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("p?"))
 
@@ -133,10 +139,10 @@ class MicroscopeControlGUI(QMainWindow):
         self.stop_stepper_motor_btn.clicked.connect(lambda: self.send_command_arduino("h?"))
 
         self.get_Lens_calib_point_btn = QPushButton("Get Lens Calibration Point")
-        self.get_Lens_calib_point_btn.clicked.connect(lambda: self.send_command_arduino("h?"))
+        self.get_Lens_calib_point_btn.clicked.connect(self.get_Lens_calib_point)
 
         self.clear_Lens_calib_btn = QPushButton("Clear Lens Calibration")
-        self.clear_Lens_calib_btn.clicked.connect(lambda: self.send_command_arduino("h?"))
+        self.clear_Lens_calib_btn.clicked.connect(self.clear_Lens_calib)
         self.clear_Lens_calib_btn.setDisabled(True)
 
 
@@ -146,6 +152,8 @@ class MicroscopeControlGUI(QMainWindow):
         light_house_layout.addWidget(self.move_ccw_stepper_motor_btn,1,0)
         light_house_layout.addWidget(self.move_cw_stepper_motor_btn,1,1)
         light_house_layout.addWidget(self.stop_stepper_motor_btn)
+        light_house_layout.addWidget(self.get_Lens_calib_point_btn,3,0)
+        light_house_layout.addWidget(self.clear_Lens_calib_btn,3,1)
 
         # Acquisition z start/end positions
         self.z_max_label = QLabel('Z-Max')
@@ -288,7 +296,8 @@ class MicroscopeControlGUI(QMainWindow):
         return hbox, slider, text_box
 
     def change_optotune_diopter(self, value):
-        optoTuneThread = threading.Thread(target=self.lens.set_diopter, args=([value]))
+        actualValue = 1.0*value/1000
+        optoTuneThread = threading.Thread(target=self.lens.set_diopter, args=([actualValue]))
         optoTuneThread.start()
 
     # this function is depreceated due to the non-linear correlation of current and lens focal strength
@@ -382,27 +391,45 @@ class MicroscopeControlGUI(QMainWindow):
 
     def get_Lens_calib_point(self):
         
-        if ((lensCalib[0,0]+lensCalib[0,1])==0): # check if first row of the matrix has already been filled with data
+        print("targetRow")
+        
+
+        if ((self.lensCalib[0,0]+self.lensCalib[0,1])==0): # check if first row of the matrix has already been filled with data
             targetRow = 0
         else:
             targetRow = 1
 
-        lensCalib[targetRow,0] = self.controller_mcm.get_position_um(2)   # get current Z position and save it in lens calib matrix
-        lensCalib[targetRow,1] = Lens.get_diopter() # get current lens diopter and save it to the calib matrix
+        print(targetRow)
+
+        self.lensCalib[targetRow,0] = self.controller_mcm.get_position_um(2)   # get current Z position and save it in lens calib matrix
+        self.lensCalib[targetRow,1] = self.lens.get_diopter() # get current lens diopter and save it to the calib matrix
         
 
-        self.set_calibration_status_indicator(1) # set calib indicator to yellow once one line is filled
-        self.clear_Lens_calib_btn.setDisabled(False)# enable the clear calibration button
+
+        print("".join(str(self.lensCalib[targetRow,:])))
+        print("")
+        print("".join(str(self.lensCalib)))
+
+        print("x")
+        print("".join(str(self.lensCalib[:,0])))
+
+        print("y")
+        print("".join(str(self.lensCalib[:,1])))
+
+        if targetRow == 0:
+            self.set_calibration_status_indicator(1) # set calib indicator to yellow once one line is filled
+            self.clear_Lens_calib_btn.setDisabled(False)# enable the clear calibration button
 
         if targetRow == 1:
-            bLensCalibrated = True # set the calibration flag to be true once two point calibration has been performed
+            self.bLensCalibrated = True # set the calibration flag to be true once two point calibration has been performed
             self.set_calibration_status_indicator(2) # set calib idicator to green once both lines are filled
             self.get_Lens_calib_point_btn.setDisabled(True) # disable the get calibration point button
-            self.lens_calibration_line_coefficients = np.polyfit(lensCalib[:,0],lensCalib[:,1],1)
+            self.lens_calibration_line_coefficients = np.polyfit(self.lensCalib[:,0],self.lensCalib[:,1],1)
+            print("".join(str(self.lens_calibration_line_coefficients)))
 
     def get_lens_diopter_according_to_calibration(self):
         current_z_pos = self.controller_mcm.get_position_um(2) #get actual position from controller
-        resulting_diopter = (self.lens_calibration_line_coefficients[0]*current_z_pos)+self.lens_calibration_line_coefficients(1)
+        resulting_diopter = (self.lens_calibration_line_coefficients[0]*current_z_pos)+self.lens_calibration_line_coefficients[1]
         return resulting_diopter
         
     def set_calibration_status_indicator(self, state):
@@ -413,7 +440,7 @@ class MicroscopeControlGUI(QMainWindow):
             case 1:
                 print("lens calibrating")
                 self.calib_led_indicator.setStyleSheet("border : 2px solid black; background-color : yellow")
-            case 3:
+            case 2:
                 print("lens calibrated")
                 self.calib_led_indicator.setStyleSheet("border : 2px solid black; background-color : green")
 
@@ -421,8 +448,8 @@ class MicroscopeControlGUI(QMainWindow):
     def clear_Lens_calib(self):
         	
             
-        lensCalib = np.zeros((2,2)) #reset lens calib to 0,0;0,0
-        bLensCalibrated = False # reset calibration flag to false
+        self.lensCalib = np.zeros((2,2)) #reset lens calib to 0,0;0,0
+        self.bLensCalibrated = False # reset calibration flag to false
         self.set_calibration_status_indicator(0) # reset calib indicator to uncalibrated
         self.get_Lens_calib_point_btn.setDisabled(False) # re-enable the get calibration point button
         self.clear_Lens_calib_btn.setDisabled(True) # disable the clear calibration button
@@ -459,14 +486,16 @@ class MicroscopeControlGUI(QMainWindow):
             self.move_stage(2, z, True)  # here I move the stage and block the following commands
             if not z == z_min:
                 self.update_ui_elements(2, z_step)
-
+                print("moving")
+            
             # ********************************
 
             # Space for focus interpolation code
 
             # ********************************
-            if bLensCalibrated:
+            if self.bLensCalibrated:
                 self.focus_interpolation()
+                print("refocusing")
 
             # Get a single image
             self.cam.sdk.set_delay_exposure_time(0, 'ms', int(self.exposure_input.text()), 'ms')
@@ -474,7 +503,7 @@ class MicroscopeControlGUI(QMainWindow):
             
             img, meta = self.cam.image()
             img = img.reshape((2048, 2048))
-            
+            print("taking image")
             # Apply the vmin and vmax normalization
             img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
 
@@ -483,7 +512,7 @@ class MicroscopeControlGUI(QMainWindow):
 
             # Convert to uint16
             grayscale_image_uint16 = img_scaled.astype(np.uint16)
-
+            print("svaing image")
             # Save the image
             image_path = f"image_{z}.tif"
             imwrite(image_path, grayscale_image_uint16)
@@ -509,16 +538,19 @@ class MicroscopeControlGUI(QMainWindow):
     def focus_interpolation(self):
         
         new_diopter_value = self.get_lens_diopter_according_to_calibration()
-
+        print(new_diopter_value)
         if (new_diopter_value>lens_max_diopter):
             new_diopter_value=lens_max_diopter
         if (new_diopter_value<lens_min_diopter):
             new_diopter_value=lens_min_diopter
         
+        self.current_slider.setValue(math.floor(new_diopter_value*1000)) #change lens diopter in slider
+        self.current_text.setText(str(math.floor(new_diopter_value*1000))) #change lens diopter in slider text
         self.lens.set_diopter(new_diopter_value) #change lens diopter but make it blocking
         # self.change_optotune_diopter(new_diopter_value)
 
         print("optotune lens focus changed")
+        print(str(self.lens.get_diopter()))
 
     def set_encoders_to_cero(self):
         for channel in range(3):
