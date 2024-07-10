@@ -20,6 +20,7 @@ class Window(QMainWindow):
         # calling method
         self.UiComponents()
         self.statusBar.addPermanentWidget(self.button)
+        self.statusBar.addPermanentWidget(self.slider)
         # showing all the widgets
         self.show()
  
@@ -37,16 +38,26 @@ class Window(QMainWindow):
  
         # adding action to a button
         self.button2.clicked.connect(self.clickme)
-        
+     
         self.button.setDisabled(True)
+
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(-5)
+        self.slider.setMaximum(5)
+        self.slider.setValue(0)
+        self.slider.valueChanged.connect(self.sliderAction)
  
     # action method
     def clickme(self):
  
-        self.button.setStyleSheet("border : 2px solid black; background-color : red") 
+        self.button.setStyleSheet("border : 2px solid black; background-color : red")
+        self.slider.setValue(2)
         # printing pressed
         print("pressed")
- 
+    
+    def sliderAction(self):
+        print("value changed event")
+        
 # create pyqt5 app
 App = QApplication(sys.argv)
  

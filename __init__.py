@@ -17,6 +17,9 @@ import matplotlib.pyplot as plt
 default_um_btn_move = 10
 lensCalib = np.zeros((2,2))
 bLensCalibrated = False
+lens_diopter = 0 #setting default lens diopter value to 0, centering it in its range (-5,5)
+lens_max_diopter = 5
+lens_min_diopter = -5
 
 
 class MplCanvas(FigureCanvas):
@@ -42,6 +45,8 @@ class MicroscopeControlGUI(QMainWindow):
             self.controller_mcm._set_encoder_counts_to_zero(channel)
 
         self.lens = Lens('COM5', debug=False)
+        self.lens.to_focal_power_mode() # switch lens to focus power mode instead of current mode
+        self.lens.set_diopter(lens_diopter) # set diopter to default value
         self.cam = pco.Camera(interface="USB 3.0")
         self.arduino = serial.Serial(port="COM6", baudrate=115200, timeout=1)
         
@@ -108,7 +113,7 @@ class MicroscopeControlGUI(QMainWindow):
         z_layout, self.z_slider, self.z_text = self.create_slider_with_text('Z Position (um)', -10000, 10000, 0, self.move_stage, channel=2)
 
         # Sliders optotune lens and arduino stepper motor
-        current_layout, self.current_slider, self.current_text = self.create_slider_with_text('Current', -150, 150, 0, self.change_optotune_current)
+        current_layout, self.current_slider, self.current_text = self.create_slider_with_text('Diopter', -5, 5, 0, self.change_optotune_diopter) #changed slider from current to focal strength in diopter
         acceleration_layout, self.acceleration_slider, self.acceleration_text = self.create_slider_with_text('Acceleration', 1, 25000, 1000, self.send_acc_serial_command)
         amplitude_layout, self.amplitude_slider, self.amplitude_text = self.create_slider_with_text('Amplitude', 1, 50, 30, self.send_width_serial_command)
 
@@ -236,7 +241,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.cam.wait_for_first_image()
 
         img, meta = self.cam.image()
-        img = img.reshape((2048, 2048))
+        #img = img.reshape((2048, 2048)) # is reshaping really neccessary?
         
         # clipping and scaling the image data is highly depreceated and is removed
 
@@ -247,7 +252,7 @@ class MicroscopeControlGUI(QMainWindow):
         # img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
 
         # Convert to uint16
-        grayscale_image_uint16 = img.astype(np.uint16) #todo: check if img.astype is neccessary or clipping the data
+        grayscale_image_uint16 = img.astype(np.uint16) #done: check if img.astype is neccessary or clipping the data: no clipping, it is neccessary, otherwhise the tiff image will be 32bit float
 
         # Save the image
         image_path = f"image.tif"
@@ -282,6 +287,11 @@ class MicroscopeControlGUI(QMainWindow):
 
         return hbox, slider, text_box
 
+    def change_optotune_diopter(self, value):
+        optoTuneThread = threading.Thread(target=self.lens.set_diopter, args=([value]))
+        optoTuneThread.start()
+
+    # this function is depreceated due to the non-linear correlation of current and lens focal strength
     def change_optotune_current(self, value):
         optoTuneThread = threading.Thread(target=self.lens.set_current, args=([value]))
         optoTuneThread.start()
@@ -355,7 +365,7 @@ class MicroscopeControlGUI(QMainWindow):
 
     def move_stage(self, channel, value, blocking = False):
         if not(blocking):
-            MoveStageThread1 = threading.Thread(target=self.controller_mcm.move_um, args=(channel, value, False))
+            MoveStageThread1 = threading.Thread(target=self.controller_mcm.move_um, args=(channel, value, False)) #is this really non-blocking?
             MoveStageThread1.start()
         else:
             self.controller_mcm.move_um(channel,value,False)
@@ -378,7 +388,7 @@ class MicroscopeControlGUI(QMainWindow):
             targetRow = 1
 
         lensCalib[targetRow,0] = self.controller_mcm.get_position_um(2)   # get current Z position and save it in lens calib matrix
-        lensCalib[targetRow,1] = Lens.get_current() # get current lens current and save it to the calib matrix
+        lensCalib[targetRow,1] = Lens.get_diopter() # get current lens diopter and save it to the calib matrix
         
 
         self.set_calibration_status_indicator(1) # set calib indicator to yellow once one line is filled
@@ -388,6 +398,12 @@ class MicroscopeControlGUI(QMainWindow):
             bLensCalibrated = True # set the calibration flag to be true once two point calibration has been performed
             self.set_calibration_status_indicator(2) # set calib idicator to green once both lines are filled
             self.get_Lens_calib_point_btn.setDisabled(True) # disable the get calibration point button
+            self.lens_calibration_line_coefficients = np.polyfit(lensCalib[:,0],lensCalib[:,1],1)
+
+    def get_lens_diopter_according_to_calibration(self):
+        current_z_pos = self.controller_mcm.get_position_um(2) #get actual position from controller
+        resulting_diopter = (self.lens_calibration_line_coefficients[0]*current_z_pos)+self.lens_calibration_line_coefficients(1)
+        return resulting_diopter
         
     def set_calibration_status_indicator(self, state):
         match state:
@@ -449,7 +465,8 @@ class MicroscopeControlGUI(QMainWindow):
             # Space for focus interpolation code
 
             # ********************************
-            self.focus_interpolation()
+            if bLensCalibrated:
+                self.focus_interpolation()
 
             # Get a single image
             self.cam.sdk.set_delay_exposure_time(0, 'ms', int(self.exposure_input.text()), 'ms')
@@ -490,8 +507,18 @@ class MicroscopeControlGUI(QMainWindow):
         self.timer.start(100)
 
     def focus_interpolation(self):
-        # TODO
-        return 0
+        
+        new_diopter_value = self.get_lens_diopter_according_to_calibration()
+
+        if (new_diopter_value>lens_max_diopter):
+            new_diopter_value=lens_max_diopter
+        if (new_diopter_value<lens_min_diopter):
+            new_diopter_value=lens_min_diopter
+        
+        self.lens.set_diopter(new_diopter_value) #change lens diopter but make it blocking
+        # self.change_optotune_diopter(new_diopter_value)
+
+        print("optotune lens focus changed")
 
     def set_encoders_to_cero(self):
         for channel in range(3):
