@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QGridLayout, QMainWindow, QStatusBar, QToolBar, QMainWindow
-from PyQt5.QtGui import QIntValidator
+from PyQt5.QtGui import QIntValidator, QIcon
 from PyQt5.QtCore import Qt, QTimer, QMetaObject
 import threading
 import serial
@@ -21,7 +21,9 @@ default_um_btn_move = 10
 lens_diopter = 0 #setting default lens diopter value to 0, centering it in its range (-5,5)
 lens_max_diopter = 5
 lens_min_diopter = -5
-
+#setting default dynamic range of image display canvas
+default_vMin = 0
+default_vMax = 65535
 
 
 class CameraDummy:
@@ -42,7 +44,7 @@ class CameraDummy:
 
     def image(self):
         print("capturing image")
-        imageData = np.random.randint(65535, size=(2048,2048))
+        imageData = np.random.randint(default_vMax, size=(2048,2048))
         imageData16 = imageData.astype(np.uint16)
         time.sleep(1.0*(self.expodure_time+self.delay_time)/1000.0)
         metaData = "none"
@@ -122,7 +124,7 @@ class ScannerDummy:
 class MplCanvas(FigureCanvas):
     def __init__(self):
         self.fig, self.ax = plt.subplots()
-        self.img_plot = self.ax.imshow(np.zeros((2048, 2048)), cmap='gray', norm=Normalize(vmin=0, vmax=255))
+        self.img_plot = self.ax.imshow(np.zeros((2048, 2048)), cmap='gray', norm=Normalize(vmin=default_vMin, vmax=default_vMax))
         self.ax.set_ylim(0, 2048)
         self.ax.set_xlim(0, 2048)
         super().__init__(self.fig)
@@ -197,7 +199,7 @@ class MicroscopeControlGUI(QMainWindow):
         # Add vmin input
         vmin_layout = QHBoxLayout()
         vmin_label = QLabel("vmin:")
-        self.vmin_input = QLineEdit("0")
+        self.vmin_input = QLineEdit(str(default_vMin))
         self.vmin_input.returnPressed.connect(self.update_vmin_vmax)
         vmin_layout.addWidget(vmin_label)
         vmin_layout.addWidget(self.vmin_input)
@@ -205,7 +207,7 @@ class MicroscopeControlGUI(QMainWindow):
         # Add vmax input
         vmax_layout = QHBoxLayout()
         vmax_label = QLabel("vmax:")
-        self.vmax_input = QLineEdit("255")
+        self.vmax_input = QLineEdit(str(default_vMax))
         self.vmax_input.returnPressed.connect(self.update_vmin_vmax)
         vmax_layout.addWidget(vmax_label)
         vmax_layout.addWidget(self.vmax_input)
@@ -615,16 +617,16 @@ class MicroscopeControlGUI(QMainWindow):
             self.cam.record()
             
             img, meta = self.cam.image()
-            img = img.reshape((2048, 2048))
+            #img = img.reshape((2048, 2048))
             print("taking image")
             # Apply the vmin and vmax normalization
-            img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
+            #img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
 
             # Scale the image to the range of uint16 (0 to 65535)
-            img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
+            #img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
 
             # Convert to uint16
-            grayscale_image_uint16 = img_scaled.astype(np.uint16)
+            grayscale_image_uint16 = img.astype(np.uint16)
             print("svaing image")
             # Save the image
             image_path = f"image_{z}.tif"
@@ -691,6 +693,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.status_bar.addPermanentWidget(QLabel("Z="))
         self.status_bar.addPermanentWidget(QLabel("0 ")) #todo: Promote to variable
 
+        
         self.setStatusBar(self.status_bar)
         self.statusBar
 
