@@ -14,12 +14,109 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.colors import Normalize
 import matplotlib.pyplot as plt
 import math
+from enum import Enum
 
 default_um_btn_move = 10
 
 lens_diopter = 0 #setting default lens diopter value to 0, centering it in its range (-5,5)
 lens_max_diopter = 5
 lens_min_diopter = -5
+
+
+
+class CameraDummy:
+    
+    
+    def __init__(self):
+        self.sdk = self
+        self.expodure_time = 0
+        self.delay_time = 0
+        
+        print("simulating camera")
+
+    def record(self, n_images=1, mode="sequence"):
+        print("starting recording of "+str(n_images)+" images in "+str(mode)+" mode")
+        print("exposure time "+str(self.expodure_time)+"ms, delay "+str(self.delay_time)+" ms")
+        time.sleep(1.0*(self.expodure_time+self.delay_time)/1000.0)
+        print("recording done")
+
+    def image(self):
+        print("capturing image")
+        imageData = np.random.randint(65535, size=(2048,2048))
+        imageData16 = imageData.astype(np.uint16)
+        time.sleep(1.0*(self.expodure_time+self.delay_time)/1000.0)
+        metaData = "none"
+        return imageData16, metaData
+
+
+
+    def wait_for_first_image(self):
+        print("waiting for first image")
+        time.sleep(1.0*(self.expodure_time+self.delay_time)/1000.0)
+        print("done waiting")
+
+    def stop(self):
+        print("cam stopped")
+
+    def set_recording_state(self, state):
+        print("setting recording state to "+str(state))
+
+    def set_trigger_mode(self, state):
+        print("setting trigger mode to "+str(state))
+
+    def set_delay_exposure_time(self, delay_time, dt_unit, exposure_time, ex_unit):
+        print("setting delay time to "+str(delay_time)+" "+str(dt_unit))
+        self.delay_time = delay_time
+        print("setting exposure time to "+str(exposure_time)+" "+str(ex_unit))
+        self.expodure_time = exposure_time
+        
+    def close(self):
+        print("cam connection closed")
+
+
+class StageDummy:
+    
+    def __init__(self):
+        print("simulating xyz stage")
+        
+
+    def _set_encoder_counts_to_zero(self, channel):
+        print("defined as zero")
+
+    def close(self):
+        print("stage connection closed")
+
+    def move_um(self, channel, move_um, relative, block=True):
+        class ChannelName(Enum):
+            X = 0
+            Y = 1
+            Z = 2
+        
+        print("moving stage on "+str(ChannelName(channel).name)+" axis for "+ str(move_um)+ " um")
+        
+
+class LensDummy:
+    def __init__(self):
+        print("simulating ETL lens")
+
+    def to_focal_power_mode(self):
+        print("switched to diopter mode")
+        return 0
+
+    def set_diopter(self, lens_diopter):
+        print("refractive power set to "+str(lens_diopter)+ "diopter")
+    
+    def close(self):
+        print("lens connection closed")
+
+
+class ScannerDummy:
+    def __init__(self):
+        print("simulating scanner")
+    
+    def close(self):
+        print("scannrt connection closed")
+
 
 
 class MplCanvas(FigureCanvas):
@@ -37,24 +134,40 @@ class MicroscopeControlGUI(QMainWindow):
         # Initialize components
         
 
-
-        self.controller_mcm = mc.Controller(which_port='COM4',
+        try:
+            self.controller_mcm = mc.Controller(which_port='COM4',
                                         stages=('ZFM2020', 'ZFM2020', 'ZFM2020'),
                                         reverse=(False, False, False),
                                         verbose=True,
                                         very_verbose=False)
+        except:
+            print("xyz stage not found")
+            self.controller_mcm = StageDummy()
+
+
         for channel in range(3):
             self.controller_mcm._set_encoder_counts_to_zero(channel)
 
-        self.lens = Lens('COM5', debug=False)
+        try:
+            self.lens = Lens('COM5', debug=False)
+        except:
+            self.lens = LensDummy()
+
         self.lens.to_focal_power_mode() # switch lens to focus power mode instead of current mode
         self.lens.set_diopter(lens_diopter) # set diopter to default value
         
         self.lensCalib = np.zeros((2,2))
         self.bLensCalibrated = False
         
-        self.cam = pco.Camera(interface="USB 3.0")
-        self.arduino = serial.Serial(port="COM6", baudrate=115200, timeout=1)
+        try:
+            self.cam = pco.Camera(interface="USB 3.0")
+        except:
+            self.cam = CameraDummy()
+
+        try:
+            self.arduino = serial.Serial(port="COM6", baudrate=115200, timeout=1)
+        except:
+            self.arduino = ScannerDummy()
         
         self.initUI()
         
