@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QGridLayout, QMainWindow, QStatusBar, QToolBar, QMainWindow
 from PyQt5.QtGui import QIntValidator, QIcon
-from PyQt5.QtCore import Qt, QTimer, QMetaObject
+from PyQt5.QtCore import Qt, QTimer, QMetaObject, QThread
 import threading
 import serial
 import time
@@ -14,6 +14,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.colors import Normalize
 import matplotlib.pyplot as plt
 import math
+import random
 from enum import Enum
 
 default_um_btn_move = 10
@@ -24,6 +25,9 @@ lens_min_diopter = -5
 #setting default dynamic range of image display canvas
 default_vMin = 0
 default_vMax = 65535
+
+
+
 
 
 class CameraDummy:
@@ -81,12 +85,16 @@ class StageDummy:
     def __init__(self):
         print("simulating xyz stage")
         
-
     def _set_encoder_counts_to_zero(self, channel):
         print("defined as zero")
 
     def close(self):
         print("stage connection closed")
+
+    def get_position_um(self, channel):
+        #pos = " 5"
+        pos = (random.uniform(-4000,4000))
+        return pos
 
     def move_um(self, channel, move_um, relative, block=True):
         class ChannelName(Enum):
@@ -160,6 +168,7 @@ class MicroscopeControlGUI(QMainWindow):
         
         self.lensCalib = np.zeros((2,2))
         self.bLensCalibrated = False
+
         
         try:
             self.cam = pco.Camera(interface="USB 3.0")
@@ -225,6 +234,10 @@ class MicroscopeControlGUI(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_canvas)
         #self.timer.start(100)  # 10 frames per second
+        
+        self.position_update_timer = QTimer()
+        self.position_update_timer.timeout.connect(self.update_position_indicator)
+        self.position_update_timer.start(10)
 
         self.init_live_acquisition()
 
@@ -345,6 +358,12 @@ class MicroscopeControlGUI(QMainWindow):
             self.canvas.draw()
         except ValueError:
             print("Invalid vmin or vmax")
+
+    def fire_canvas_update_thread(self):
+        
+        self.canvas_update_thread = threading.Thread(target=self.update_canvas)
+        self.canvas_update_thread.start()
+        
 
     def update_canvas(self):
         img, meta = self.cam.image()
@@ -677,6 +696,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.z_text.setText(str(0))
         self.z_slider.setValue(0)
 
+    
     def create_status_bar(self):
         self.calib_led_indicator = QPushButton()
         self.calib_led_indicator.setStyleSheet("border : 2px solid black; background-color : red")
@@ -686,16 +706,31 @@ class MicroscopeControlGUI(QMainWindow):
         self.status_bar.addPermanentWidget(self.calib_led_indicator)
 
         self.status_bar.addPermanentWidget(QLabel("Current stage position: "))
+        
+        
         self.status_bar.addPermanentWidget(QLabel("X="))
-        self.status_bar.addPermanentWidget(QLabel("0 ")) #todo: Promote to variable
+        self.position_indicator_X = QLabel("0 ")
+        self.status_bar.addPermanentWidget(self.position_indicator_X) 
         self.status_bar.addPermanentWidget(QLabel("Y="))
-        self.status_bar.addPermanentWidget(QLabel("0 ")) #todo: Promote to variable
+        self.position_indicator_Y = QLabel("0 ")
+        self.status_bar.addPermanentWidget(self.position_indicator_Y) 
         self.status_bar.addPermanentWidget(QLabel("Z="))
-        self.status_bar.addPermanentWidget(QLabel("0 ")) #todo: Promote to variable
-
+        self.position_indicator_Z = QLabel("0 ")
+        self.status_bar.addPermanentWidget(self.position_indicator_Z) 
         
         self.setStatusBar(self.status_bar)
         self.statusBar
+
+    def update_position_indicator(self):
+        
+        self.position_indicator_X.setText("{:005.0f}".format(self.controller_mcm.get_position_um(0)))
+        self.position_indicator_Y.setText("{:005.0f}".format(self.controller_mcm.get_position_um(1)))
+        self.position_indicator_Z.setText("{:005.0f}".format(self.controller_mcm.get_position_um(2)))
+
+        #self.show()
+        
+        
+      
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
