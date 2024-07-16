@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QGridLayout, QMainWindow, QStatusBar, QToolBar, QMainWindow
-from PyQt5.QtGui import QIntValidator, QIcon
+from PyQt5.QtGui import QIntValidator, QIcon, QPixmap, QImage
 from PyQt5.QtCore import Qt, QTimer, QMetaObject, QThread
 import threading
 import serial
@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import math
 import random
 from enum import Enum
+import cv2 as cv
 
 default_um_btn_move = 10
 
@@ -24,7 +25,8 @@ lens_max_diopter = 5
 lens_min_diopter = -5
 #setting default dynamic range of image display canvas
 default_vMin = 0
-default_vMax = 65535
+#default_vMax = 65535
+default_vMax = 5535
 
 
 
@@ -125,17 +127,32 @@ class ScannerDummy:
         print("simulating scanner")
     
     def close(self):
-        print("scannrt connection closed")
+        print("scanner connection closed")
 
 
+# class MplCanvas(QLabel):
+#     def __init__(self):
+#         imageData = np.zeros((2048,2048))
+#         imageData16 = imageData.astype(np.uint16)
+#         qImage = QImage(imageData16, 2048,2048,QImage.Format.Format_Grayscale16)
+        
+#         self.setPixmap(QPixmap.fromImage(qImage))
+        # self.fig, self.ax = plt.subplots()
+        # self.img_plot = self.ax.imshow(np.zeros((2048, 2048)), cmap='gray', norm=Normalize(vmin=default_vMin, vmax=default_vMax))
+        # self.ax.set_ylim(0, 2048)
+        # self.ax.set_xlim(0, 2048)
+        #super().__init__(self.fig)
 
-class MplCanvas(FigureCanvas):
-    def __init__(self):
-        self.fig, self.ax = plt.subplots()
-        self.img_plot = self.ax.imshow(np.zeros((2048, 2048)), cmap='gray', norm=Normalize(vmin=default_vMin, vmax=default_vMax))
-        self.ax.set_ylim(0, 2048)
-        self.ax.set_xlim(0, 2048)
-        super().__init__(self.fig)
+
+# class MplCanvas(FigureCanvas):
+#     def __init__(self):
+        
+        
+#         self.fig, self.ax = plt.subplots()
+#         self.img_plot = self.ax.imshow(np.zeros((2048, 2048)), cmap='gray', norm=Normalize(vmin=default_vMin, vmax=default_vMax))
+#         self.ax.set_ylim(0, 2048)
+#         self.ax.set_xlim(0, 2048)
+#         super().__init__(self.fig)
 
 class MicroscopeControlGUI(QMainWindow):
     def __init__(self):
@@ -186,8 +203,15 @@ class MicroscopeControlGUI(QMainWindow):
         self.setWindowTitle('LSM Control')
 
         # Create the canvas for the camera
-        self.canvas = MplCanvas()
-
+        self.canvas = QLabel()
+        self.canvas.setMaximumSize(500, 500)
+        #imageData = np.random.randint(65535, size=(2048,2048))
+        imageData = np.zeros((2048,2048))
+        imageData16 = imageData.astype(np.uint16)
+        qImage = QImage(imageData16, 2048,2048,QImage.Format.Format_Grayscale16)
+        pixMap = QPixmap.fromImage(qImage)
+        self.canvas.setPixmap(pixMap)
+        
         # Create the main layout
         main_layout = QHBoxLayout()
         
@@ -354,8 +378,8 @@ class MicroscopeControlGUI(QMainWindow):
         try:
             vmin = int(self.vmin_input.text())
             vmax = int(self.vmax_input.text())
-            self.canvas.img_plot.set_norm(Normalize(vmin=vmin, vmax=vmax))
-            self.canvas.draw()
+            #self.canvas.img_plot.set_norm(Normalize(vmin=vmin, vmax=vmax))
+            #self.canvas.draw()
         except ValueError:
             print("Invalid vmin or vmax")
 
@@ -364,11 +388,15 @@ class MicroscopeControlGUI(QMainWindow):
         self.canvas_update_thread = threading.Thread(target=self.update_canvas)
         self.canvas_update_thread.start()
         
+    def get_image_from_camera(self): #todo fill and use that function
+        self.image_data, self.image_metadata = self.cam.image()
+        return self.image_data
 
     def update_canvas(self):
-        img, meta = self.cam.image()
-        self.canvas.img_plot.set_array(img)
-        self.canvas.draw()
+        img = self.get_image_from_camera()
+        qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
+        pixMap = QPixmap.fromImage(qImage)
+        self.canvas.setPixmap(pixMap)
 
     def closeEvent(self, event):
         event.accept()
