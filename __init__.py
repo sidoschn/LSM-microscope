@@ -256,7 +256,7 @@ class MicroscopeControlGUI(QMainWindow):
 
         # Camera plot thorugh a canvas
         self.timer = QTimer()
-        self.timer.timeout.connect(self.update_canvas)
+        self.timer.timeout.connect(self.fire_canvas_update_thread)
         #self.timer.start(100)  # 10 frames per second
         
         self.position_update_timer = QTimer()
@@ -371,6 +371,8 @@ class MicroscopeControlGUI(QMainWindow):
         try:
             exposure_time = int(self.exposure_input.text())
             self.cam.sdk.set_delay_exposure_time(0, 'ms', exposure_time, 'ms')
+            self.timer.stop()
+            self.timer.start(exposure_time)
         except ValueError:
             print("Invalid exposure time")
 
