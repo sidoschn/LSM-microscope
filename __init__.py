@@ -260,15 +260,16 @@ class MicroscopeControlGUI(QMainWindow):
 
         # Camera plot thorugh a canvas
         self.canvas_timer_stop_event = threading.Event()
-        self.canvas_timer = threading.Thread(target=self.canvas_update_timer_thread, args=(self.canvas_timer_stop_event, "message"))
+        self.canvas_timer = threading.Thread(target=self.canvas_update_timer_thread, args=(self.canvas_timer_stop_event, "message"), daemon=True)
         
         #self.canvas_timer = QTimer()
         #self.canvas_timer.timeout.connect(self.fire_canvas_update_thread)
         #self.canvas_timer.start(100)  # 10 frames per second
         
-        self.position_update_timer = QTimer()
-        self.position_update_timer.timeout.connect(self.update_position_indicator)
-        self.position_update_timer.start(10)
+        
+        # self.position_update_timer = QTimer()
+        # self.position_update_timer.timeout.connect(self.update_position_indicator)
+        # self.position_update_timer.start(10)
 
         self.init_live_acquisition()
 
@@ -368,6 +369,11 @@ class MicroscopeControlGUI(QMainWindow):
 
         #prepare the status bar components
         self.create_status_bar()
+
+        #start the position indicator thread
+        self.position_update_stop_event = threading.Event()
+        self.position_update_thread = threading.Thread(target=self.update_position_indicator, args=(self.position_update_stop_event, "message"), daemon=True)
+        self.position_update_thread.start()
         
         container = QWidget()
         container.setLayout(main_layout)
@@ -379,9 +385,6 @@ class MicroscopeControlGUI(QMainWindow):
             exposure_time = int(self.exposure_input.text())
             self.exposure_time = exposure_time
             self.cam.sdk.set_delay_exposure_time(0, 'ms', exposure_time, 'ms')
-            
-            #self.canvas_timer.bStop = True
-            #self.canvas_timer.start()
         except ValueError:
             print("Invalid exposure time")
 
@@ -403,7 +406,7 @@ class MicroscopeControlGUI(QMainWindow):
         return self.image_data
 
     def canvas_update_timer_thread(self, stop_event, message):
-        print("canvas thread started")
+        #print("canvas thread started")
         
         while not stop_event.is_set():
             
@@ -411,10 +414,8 @@ class MicroscopeControlGUI(QMainWindow):
             qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
             pixMap = QPixmap.fromImage(qImage)
             self.canvas.setPixmap(pixMap)
-            #wait_time = self.exposure_time/1000
-            #print(wait_time)
-            #time.sleep(wait_time)
-        print("canvas thread stopped")
+            
+        #print("canvas thread stopped")
     
     def update_canvas(self):
         img = self.get_image_from_camera()
@@ -773,11 +774,13 @@ class MicroscopeControlGUI(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.statusBar
 
-    def update_position_indicator(self):
+    def update_position_indicator(self, stop_event, message):
         
-        self.position_indicator_X.setText("{:005.0f}".format(self.controller_mcm.get_position_um(0)))
-        self.position_indicator_Y.setText("{:005.0f}".format(self.controller_mcm.get_position_um(1)))
-        self.position_indicator_Z.setText("{:005.0f}".format(self.controller_mcm.get_position_um(2)))
+        while not stop_event.is_set():
+            self.position_indicator_X.setText("{:005.0f}".format(self.controller_mcm.get_position_um(0)))
+            self.position_indicator_Y.setText("{:005.0f}".format(self.controller_mcm.get_position_um(1)))
+            self.position_indicator_Z.setText("{:005.0f}".format(self.controller_mcm.get_position_um(2)))
+            time.sleep(0.01)
 
         #self.show()
         
