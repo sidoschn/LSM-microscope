@@ -28,6 +28,7 @@ default_vMin = 0
 #default_vMax = 65535
 default_vMax = 5535
 
+default_exposure_time = int(100)
 
 
 
@@ -52,7 +53,9 @@ class CameraDummy:
         print("capturing image")
         imageData = np.random.randint(default_vMax, size=(2048,2048))
         imageData16 = imageData.astype(np.uint16)
-        time.sleep(1.0*(self.expodure_time+self.delay_time)/1000.0)
+        wait_time = 1.0*(self.expodure_time+self.delay_time)/1000.0 
+        print(wait_time)
+        time.sleep(wait_time)
         metaData = "none"
         return imageData16, metaData
 
@@ -224,8 +227,9 @@ class MicroscopeControlGUI(QMainWindow):
         # Add exposure time input
         exposure_layout = QHBoxLayout()
         exposure_label = QLabel("Exposure Time (ms):")
-        self.exposure_input = QLineEdit("10")
+        self.exposure_input = QLineEdit(str(default_exposure_time))
         self.exposure_input.returnPressed.connect(self.update_exposure_time)
+        self.exposure_time = default_exposure_time 
         exposure_layout.addWidget(exposure_label)
         exposure_layout.addWidget(self.exposure_input)
 
@@ -255,9 +259,12 @@ class MicroscopeControlGUI(QMainWindow):
         self.create_control_buttons()
 
         # Camera plot thorugh a canvas
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.fire_canvas_update_thread)
-        #self.timer.start(100)  # 10 frames per second
+        self.canvas_timer_stop_event = threading.Event()
+        self.canvas_timer = threading.Thread(target=self.canvas_update_timer_thread, args=(self.canvas_timer_stop_event, "message"))
+        
+        #self.canvas_timer = QTimer()
+        #self.canvas_timer.timeout.connect(self.fire_canvas_update_thread)
+        #self.canvas_timer.start(100)  # 10 frames per second
         
         self.position_update_timer = QTimer()
         self.position_update_timer.timeout.connect(self.update_position_indicator)
@@ -370,9 +377,11 @@ class MicroscopeControlGUI(QMainWindow):
     def update_exposure_time(self):
         try:
             exposure_time = int(self.exposure_input.text())
+            self.exposure_time = exposure_time
             self.cam.sdk.set_delay_exposure_time(0, 'ms', exposure_time, 'ms')
-            self.timer.stop()
-            self.timer.start(exposure_time)
+            
+            #self.canvas_timer.bStop = True
+            #self.canvas_timer.start()
         except ValueError:
             print("Invalid exposure time")
 
@@ -386,7 +395,6 @@ class MicroscopeControlGUI(QMainWindow):
             print("Invalid vmin or vmax")
 
     def fire_canvas_update_thread(self):
-        
         self.canvas_update_thread = threading.Thread(target=self.update_canvas)
         self.canvas_update_thread.start()
         
@@ -394,6 +402,20 @@ class MicroscopeControlGUI(QMainWindow):
         self.image_data, self.image_metadata = self.cam.image()
         return self.image_data
 
+    def canvas_update_timer_thread(self, stop_event, message):
+        print("canvas thread started")
+        
+        while not stop_event.is_set():
+            
+            img = self.get_image_from_camera()
+            qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
+            pixMap = QPixmap.fromImage(qImage)
+            self.canvas.setPixmap(pixMap)
+            #wait_time = self.exposure_time/1000
+            #print(wait_time)
+            #time.sleep(wait_time)
+        print("canvas thread stopped")
+    
     def update_canvas(self):
         img = self.get_image_from_camera()
         qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
@@ -402,7 +424,7 @@ class MicroscopeControlGUI(QMainWindow):
 
     def closeEvent(self, event):
         event.accept()
-        self.timer.stop()
+        self.canvas_timer_stop_event.set()
         self.cam.stop()
         self.cam.close()
         self.controller_mcm.close()
@@ -639,7 +661,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.send_command_arduino("s?")
 
         # Stop the function that update the canvas
-        self.timer.stop()
+        self.canvas_timer_stop_event.set()
 
         # stop the previous recorder
         self.cam.stop()
@@ -662,7 +684,7 @@ class MicroscopeControlGUI(QMainWindow):
                 print("refocusing")
 
             # Get a single image
-            self.cam.sdk.set_delay_exposure_time(0, 'ms', int(self.exposure_input.text()), 'ms')
+            self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
             self.cam.record()
             
             img, meta = self.cam.image()
@@ -694,10 +716,10 @@ class MicroscopeControlGUI(QMainWindow):
     def init_live_acquisition(self):
         self.cam.sdk.set_recording_state('off')
         self.cam.sdk.set_trigger_mode('auto sequence')
-        self.cam.sdk.set_delay_exposure_time(0, 'ms', int(self.exposure_input.text()), 'ms')
+        self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
         self.cam.record(4, mode="ring buffer")
         self.cam.wait_for_first_image()
-        self.timer.start(100)
+        self.canvas_timer.start()
 
     def focus_interpolation(self):
         
