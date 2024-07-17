@@ -50,11 +50,11 @@ class CameraDummy:
         print("recording done")
 
     def image(self):
-        print("capturing image")
+        #print("capturing image")
         imageData = np.random.randint(default_vMax, size=(2048,2048))
         imageData16 = imageData.astype(np.uint16)
         wait_time = 1.0*(self.expodure_time+self.delay_time)/1000.0 
-        print(wait_time)
+        #print(wait_time)
         time.sleep(wait_time)
         metaData = "none"
         return imageData16, metaData
@@ -112,6 +112,7 @@ class StageDummy:
 
 class LensDummy:
     def __init__(self):
+        self.lens_diopter = 0
         print("simulating ETL lens")
 
     def to_focal_power_mode(self):
@@ -119,7 +120,13 @@ class LensDummy:
         return 0
 
     def set_diopter(self, lens_diopter):
+        self.lens_diopter = lens_diopter
         print("refractive power set to "+str(lens_diopter)+ "diopter")
+
+    def get_diopter(self):
+        
+        print("lens diopter is "+str(self.lens_diopter))
+        return self.lens_diopter
     
     def close(self):
         print("lens connection closed")
@@ -129,6 +136,9 @@ class ScannerDummy:
     def __init__(self):
         print("simulating scanner")
     
+    def write(self,command):
+        print("command sent to arduino")
+
     def close(self):
         print("scanner connection closed")
 
@@ -259,8 +269,6 @@ class MicroscopeControlGUI(QMainWindow):
         self.create_control_buttons()
 
         # Camera plot thorugh a canvas
-        self.canvas_timer_stop_event = threading.Event()
-        self.canvas_timer = threading.Thread(target=self.canvas_update_timer_thread, args=(self.canvas_timer_stop_event, "message"), daemon=True)
         
         #self.canvas_timer = QTimer()
         #self.canvas_timer.timeout.connect(self.fire_canvas_update_thread)
@@ -376,9 +384,8 @@ class MicroscopeControlGUI(QMainWindow):
         self.position_update_thread = threading.Thread(target=self.update_position_indicator, args=(self.position_update_stop_event, "message"), daemon=True)
         self.position_update_thread.start()
 
-        self.lens_live_update_stop_event = threading.Event()
-        self.lens_live_update_thread = threading.Thread(target=self.lens_live_update_thread_function, args=(self.lens_live_update_stop_event, "message"), daemon=True)
-        
+        self.start_lens_live_update_thread(only_create=True)
+
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
@@ -429,6 +436,7 @@ class MicroscopeControlGUI(QMainWindow):
 
     def closeEvent(self, event):
         event.accept()
+        self.lens_live_update_stop_event.set()
         self.canvas_timer_stop_event.set()
         self.cam.stop()
         self.cam.close()
@@ -586,9 +594,17 @@ class MicroscopeControlGUI(QMainWindow):
         self.arduino.write(bytes(command, 'utf-8'))
         time.sleep(0.5)
 
+    def start_lens_live_update_thread(self, only_create = False):
+        print("createing lens adaption thread")
+        self.lens_live_update_stop_event = threading.Event()
+        self.lens_live_update_thread = threading.Thread(target=self.lens_live_update_thread_function, args=(self.lens_live_update_stop_event, "message"), daemon=True)
+        if not only_create:
+            self.lens_live_update_thread.start()
+            print("starting lens adaption")
+
     def get_Lens_calib_point(self):
         
-        print("targetRow")
+        #print("targetRow")
         
 
         if ((self.lensCalib[0,0]+self.lensCalib[0,1])==0): # check if first row of the matrix has already been filled with data
@@ -596,22 +612,22 @@ class MicroscopeControlGUI(QMainWindow):
         else:
             targetRow = 1
 
-        print(targetRow)
+        #print(targetRow)
 
         self.lensCalib[targetRow,0] = self.controller_mcm.get_position_um(2)   # get current Z position and save it in lens calib matrix
         self.lensCalib[targetRow,1] = self.lens.get_diopter() # get current lens diopter and save it to the calib matrix
         
 
 
-        print("".join(str(self.lensCalib[targetRow,:])))
-        print("")
-        print("".join(str(self.lensCalib)))
+        # print("".join(str(self.lensCalib[targetRow,:])))
+        # print("")
+        # print("".join(str(self.lensCalib)))
 
-        print("x")
-        print("".join(str(self.lensCalib[:,0])))
+        # print("x")
+        # print("".join(str(self.lensCalib[:,0])))
 
-        print("y")
-        print("".join(str(self.lensCalib[:,1])))
+        # print("y")
+        # print("".join(str(self.lensCalib[:,1])))
 
         if targetRow == 0:
             self.set_calibration_status_indicator(1) # set calib indicator to yellow once one line is filled
@@ -623,7 +639,7 @@ class MicroscopeControlGUI(QMainWindow):
             self.get_Lens_calib_point_btn.setDisabled(True) # disable the get calibration point button
             self.lens_calibration_line_coefficients = np.polyfit(self.lensCalib[:,0],self.lensCalib[:,1],1)
             print("".join(str(self.lens_calibration_line_coefficients)))
-            self.lens_live_update_thread.start()
+            self.start_lens_live_update_thread(only_create=False)
             self.current_slider.setDisabled(True)
             self.current_text.setDisabled(True)
 
@@ -757,7 +773,11 @@ class MicroscopeControlGUI(QMainWindow):
         self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
         self.cam.record(4, mode="ring buffer")
         self.cam.wait_for_first_image()
+        self.canvas_timer_stop_event = threading.Event()
+        self.canvas_timer = threading.Thread(target=self.canvas_update_timer_thread, args=(self.canvas_timer_stop_event, "message"), daemon=True)
         self.canvas_timer.start()
+        
+        
 
     def focus_interpolation(self):
         
