@@ -371,6 +371,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.create_status_bar()
 
         #start the position indicator thread
+        self.stage_position = np.zeros(3) #initialize the stage position array with zeros
         self.position_update_stop_event = threading.Event()
         self.position_update_thread = threading.Thread(target=self.update_position_indicator, args=(self.position_update_stop_event, "message"), daemon=True)
         self.position_update_thread.start()
@@ -777,9 +778,17 @@ class MicroscopeControlGUI(QMainWindow):
     def update_position_indicator(self, stop_event, message):
         
         while not stop_event.is_set():
-            self.position_indicator_X.setText("{:005.0f}".format(self.controller_mcm.get_position_um(0)))
-            self.position_indicator_Y.setText("{:005.0f}".format(self.controller_mcm.get_position_um(1)))
-            self.position_indicator_Z.setText("{:005.0f}".format(self.controller_mcm.get_position_um(2)))
+            #fill stage position array with current positions
+            self.stage_position[0] = self.controller_mcm.get_position_um(0)
+            self.stage_position[1] = self.controller_mcm.get_position_um(1)
+            self.stage_position[2] = self.controller_mcm.get_position_um(2)
+
+            #display current positions
+            self.position_indicator_X.setText("{:005.0f}".format(self.stage_position[0]))
+            self.position_indicator_Y.setText("{:005.0f}".format(self.stage_position[1]))
+            self.position_indicator_Z.setText("{:005.0f}".format(self.stage_position[2]))
+
+            #wait a while to refresh the thread
             time.sleep(0.01)
 
         #self.show()
