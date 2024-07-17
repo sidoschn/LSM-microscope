@@ -375,6 +375,9 @@ class MicroscopeControlGUI(QMainWindow):
         self.position_update_stop_event = threading.Event()
         self.position_update_thread = threading.Thread(target=self.update_position_indicator, args=(self.position_update_stop_event, "message"), daemon=True)
         self.position_update_thread.start()
+
+        self.lens_live_update_stop_event = threading.Event()
+        self.lens_live_update_thread = threading.Thread(target=self.lens_live_update_thread_function, args=(self.lens_live_update_stop_event, "message"), daemon=True)
         
         container = QWidget()
         container.setLayout(main_layout)
@@ -487,6 +490,12 @@ class MicroscopeControlGUI(QMainWindow):
         actualValue = 1.0*value/1000
         optoTuneThread = threading.Thread(target=self.lens.set_diopter, args=([actualValue]))
         optoTuneThread.start()
+
+    def change_optotune_diopter_blocking(self, new_diopter_value):
+        
+        self.current_slider.setValue(math.floor(new_diopter_value*1000)) #change lens diopter in slider
+        self.current_text.setText(str(math.floor(new_diopter_value*1000))) #change lens diopter in slider text
+        self.lens.set_diopter(new_diopter_value) #change lens diopter but make it blocking
 
     # this function is depreceated due to the non-linear correlation of current and lens focal strength
     def change_optotune_current(self, value):
@@ -614,12 +623,35 @@ class MicroscopeControlGUI(QMainWindow):
             self.get_Lens_calib_point_btn.setDisabled(True) # disable the get calibration point button
             self.lens_calibration_line_coefficients = np.polyfit(self.lensCalib[:,0],self.lensCalib[:,1],1)
             print("".join(str(self.lens_calibration_line_coefficients)))
+            self.lens_live_update_thread.start()
+            self.current_slider.setDisabled(True)
+            self.current_text.setDisabled(True)
 
-    def get_lens_diopter_according_to_calibration(self):
-        current_z_pos = self.controller_mcm.get_position_um(2) #get actual position from controller
+    def get_lens_diopter_according_to_calibration(self, bFromStage = True):
+
+        if bFromStage:
+            current_z_pos = self.controller_mcm.get_position_um(2) #get actual position from controller
+        else:
+            current_z_pos = self.stage_position[2] #get actual position from position tracking variable
+
         resulting_diopter = (self.lens_calibration_line_coefficients[0]*current_z_pos)+self.lens_calibration_line_coefficients[1]
         return resulting_diopter
-        
+
+    def lens_live_update_thread_function(self, stop_event, message):
+        # this function periodically checks if the stage has moved in Z and if so, adapts the optotune lens focus
+
+        current_z_pos = 0
+        while not stop_event.is_set():
+            if not (current_z_pos == self.stage_position[2]):
+                current_z_pos = self.stage_position[2]
+                newDiopter = self.get_lens_diopter_according_to_calibration(bFromStage=False)
+                self.change_optotune_diopter_blocking(newDiopter)
+                
+
+            
+            time.sleep(0.01)
+
+
     def set_calibration_status_indicator(self, state):
         match state:
             case 0:
@@ -641,6 +673,10 @@ class MicroscopeControlGUI(QMainWindow):
         self.set_calibration_status_indicator(0) # reset calib indicator to uncalibrated
         self.get_Lens_calib_point_btn.setDisabled(False) # re-enable the get calibration point button
         self.clear_Lens_calib_btn.setDisabled(True) # disable the clear calibration button
+        self.lens_live_update_stop_event.set() #stop the lens position update thread
+        self.current_slider.setDisabled(False)
+        self.current_text.setDisabled(False)
+        
 
 
     def set_z_position(self, position_type):
@@ -732,11 +768,8 @@ class MicroscopeControlGUI(QMainWindow):
         if (new_diopter_value<lens_min_diopter):
             new_diopter_value=lens_min_diopter
         
-        self.current_slider.setValue(math.floor(new_diopter_value*1000)) #change lens diopter in slider
-        self.current_text.setText(str(math.floor(new_diopter_value*1000))) #change lens diopter in slider text
-        self.lens.set_diopter(new_diopter_value) #change lens diopter but make it blocking
-        # self.change_optotune_diopter(new_diopter_value)
-
+        self.change_optotune_diopter_blocking(new_diopter_value)
+        
         print("optotune lens focus changed")
         print(str(self.lens.get_diopter()))
 
