@@ -756,7 +756,6 @@ class MicroscopeControlGUI(QMainWindow):
     def stop_acquisition(self):
         self.acquisition_thread_stop_event.set()
         #self.acquisition_running = False
-        #test pushing to nonexistent branch
         self.send_command_arduino("h?")
     
     def init_live_acquisition(self):
