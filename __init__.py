@@ -31,7 +31,7 @@ default_vMax = 5535
 default_lens_live_update_delay = 0.1
 default_exposure_time = int(100)
 default_position_update_delay = 0.1
-
+#testpush to master
 
 
 class CameraDummy:
