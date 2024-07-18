@@ -28,8 +28,9 @@ default_vMin = 0
 #default_vMax = 65535
 default_vMax = 5535
 
+default_lens_live_update_delay = 0.1
 default_exposure_time = int(100)
-
+default_position_update_delay = 0.1
 
 
 
@@ -58,8 +59,6 @@ class CameraDummy:
         time.sleep(wait_time)
         metaData = "none"
         return imageData16, metaData
-
-
 
     def wait_for_first_image(self):
         print("waiting for first image")
@@ -340,8 +339,8 @@ class MicroscopeControlGUI(QMainWindow):
 
         self.set_encoders_to_cero_btn = QPushButton("Set to cero encoders sample stage")
         self.set_encoders_to_cero_btn.clicked.connect(self.set_encoders_to_cero)
-        self.start_acquisition_btn = QPushButton("Start Stack Acquisition")
-        self.start_acquisition_btn.clicked.connect(self.start_acquisition)
+        self.acquisition_thread_function_btn = QPushButton("Start Stack Acquisition")
+        self.acquisition_thread_function_btn.clicked.connect(self.start_acquisition_thread_function)
         self.stop_acquisition_btn = QPushButton("Stop Stack Acquisition")
         self.stop_acquisition_btn.clicked.connect(self.stop_acquisition)
 
@@ -368,7 +367,7 @@ class MicroscopeControlGUI(QMainWindow):
 
         settings_layout.addLayout(z_pos_layout)
         settings_layout.addWidget(self.set_encoders_to_cero_btn)
-        settings_layout.addWidget(self.start_acquisition_btn)
+        settings_layout.addWidget(self.acquisition_thread_function_btn)
         settings_layout.addWidget(self.stop_acquisition_btn)
         settings_layout.addWidget(self.save_image_btn)
 
@@ -413,26 +412,28 @@ class MicroscopeControlGUI(QMainWindow):
         self.canvas_update_thread.start()
         
     def get_image_from_camera(self): #todo fill and use that function
-        self.image_data, self.image_metadata = self.cam.image()
-        return self.image_data
+        image_data, image_metadata = self.cam.image()
+        return image_data, image_metadata
 
     def canvas_update_timer_thread(self, stop_event, message):
         #print("canvas thread started")
         
         while not stop_event.is_set():
             
-            img = self.get_image_from_camera()
-            qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
-            pixMap = QPixmap.fromImage(qImage)
-            self.canvas.setPixmap(pixMap)
+            self.image_data, self.image_metadata = self.get_image_from_camera()
+            self.update_canvas(self.image_data)
+            # qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
+            # pixMap = QPixmap.fromImage(qImage)
+            # self.canvas.setPixmap(pixMap)
             
         #print("canvas thread stopped")
     
-    def update_canvas(self):
-        img = self.get_image_from_camera()
+    def update_canvas(self, img):
+        #img = self.get_image_from_camera()
         qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
         pixMap = QPixmap.fromImage(qImage)
         self.canvas.setPixmap(pixMap)
+        print("updating canvas")
 
     def closeEvent(self, event):
         event.accept()
@@ -603,32 +604,14 @@ class MicroscopeControlGUI(QMainWindow):
             print("starting lens adaption")
 
     def get_Lens_calib_point(self):
-        
-        #print("targetRow")
-        
-
         if ((self.lensCalib[0,0]+self.lensCalib[0,1])==0): # check if first row of the matrix has already been filled with data
             targetRow = 0
         else:
             targetRow = 1
-
-        #print(targetRow)
-
+        
         self.lensCalib[targetRow,0] = self.controller_mcm.get_position_um(2)   # get current Z position and save it in lens calib matrix
         self.lensCalib[targetRow,1] = self.lens.get_diopter() # get current lens diopter and save it to the calib matrix
         
-
-
-        # print("".join(str(self.lensCalib[targetRow,:])))
-        # print("")
-        # print("".join(str(self.lensCalib)))
-
-        # print("x")
-        # print("".join(str(self.lensCalib[:,0])))
-
-        # print("y")
-        # print("".join(str(self.lensCalib[:,1])))
-
         if targetRow == 0:
             self.set_calibration_status_indicator(1) # set calib indicator to yellow once one line is filled
             self.clear_Lens_calib_btn.setDisabled(False)# enable the clear calibration button
@@ -655,17 +638,13 @@ class MicroscopeControlGUI(QMainWindow):
 
     def lens_live_update_thread_function(self, stop_event, message):
         # this function periodically checks if the stage has moved in Z and if so, adapts the optotune lens focus
-
         current_z_pos = 0
         while not stop_event.is_set():
             if not (current_z_pos == self.stage_position[2]):
                 current_z_pos = self.stage_position[2]
                 newDiopter = self.get_lens_diopter_according_to_calibration(bFromStage=False)
                 self.change_optotune_diopter_blocking(newDiopter)
-                
-
-            
-            time.sleep(0.01)
+        time.sleep(default_lens_live_update_delay) # pause before redoing the lens refresh check
 
 
     def set_calibration_status_indicator(self, state):
@@ -702,7 +681,12 @@ class MicroscopeControlGUI(QMainWindow):
         elif position_type == 'min':
             self.z_min_label.setText(f'Z-Min: {current_z_position}')
 
-    def start_acquisition(self):
+    def start_acquisition_thread_function(self):
+        self.acquisition_thread_stop_event = threading.Event()
+        self.acquisition_thread = threading.Thread(target=self.acquisition_thread_function, args=(self.acquisition_thread_stop_event, "message"), daemon=True)
+        self.acquisition_thread.start()
+
+    def acquisition_thread_function(self, stop_event, message):
         try:
             z_min = int(self.z_min_label.text().split(": ")[1])
             z_max = int(self.z_max_label.text().split(": ")[1])
@@ -721,7 +705,8 @@ class MicroscopeControlGUI(QMainWindow):
         self.cam.stop()
 
         for z in range(z_min, z_max + z_step, z_step):
-            if not self.acquisition_running:
+            if stop_event.is_set():
+                print("aborting acquisiton")
                 break
             self.move_stage(2, z, True)  # here I move the stage and block the following commands
             if not z == z_min:
@@ -741,9 +726,14 @@ class MicroscopeControlGUI(QMainWindow):
             self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
             self.cam.record()
             
-            img, meta = self.cam.image()
+            #imageData = np.zeros((2048,2048))
+            #self.image_data = imageData.astype(np.uint16)
+            #img, meta = self.cam.image()
+            self.image_data, self.image_metadata = self.get_image_from_camera()
             #img = img.reshape((2048, 2048))
             print("taking image")
+
+            self.update_canvas(self.image_data)
             # Apply the vmin and vmax normalization
             #img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
 
@@ -751,20 +741,21 @@ class MicroscopeControlGUI(QMainWindow):
             #img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
 
             # Convert to uint16
-            grayscale_image_uint16 = img.astype(np.uint16)
+            grayscale_image_uint16 = self.image_data.astype(np.uint16)
             print("svaing image")
             # Save the image
             image_path = f"image_{z}.tif"
             imwrite(image_path, grayscale_image_uint16)
 
-        # Pause stepper motor
-        self.send_command_arduino("p?")
+        # Pause stepper motor 
+        self.send_command_arduino("p?") #todo: check if this is sensible or neccessary
         # Restart live acquisition
         self.init_live_acquisition()
 
 
     def stop_acquisition(self):
-        self.acquisition_running = False
+        self.acquisition_thread_stop_event.set()
+        #self.acquisition_running = False
         self.send_command_arduino("h?")
     
     def init_live_acquisition(self):
@@ -782,7 +773,7 @@ class MicroscopeControlGUI(QMainWindow):
     def focus_interpolation(self):
         
         new_diopter_value = self.get_lens_diopter_according_to_calibration()
-        print(new_diopter_value)
+        #print(new_diopter_value)
         if (new_diopter_value>lens_max_diopter):
             new_diopter_value=lens_max_diopter
         if (new_diopter_value<lens_min_diopter):
@@ -790,8 +781,8 @@ class MicroscopeControlGUI(QMainWindow):
         
         self.change_optotune_diopter_blocking(new_diopter_value)
         
-        print("optotune lens focus changed")
-        print(str(self.lens.get_diopter()))
+        #print("optotune lens focus changed")
+        #print(str(self.lens.get_diopter()))
 
     def set_encoders_to_cero(self):
         for channel in range(3):
@@ -842,7 +833,7 @@ class MicroscopeControlGUI(QMainWindow):
             self.position_indicator_Z.setText("{:005.0f}".format(self.stage_position[2]))
 
             #wait a while to refresh the thread
-            time.sleep(0.01)
+            time.sleep(default_position_update_delay)
 
         #self.show()
         
