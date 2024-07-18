@@ -2,6 +2,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QGridLayout, QMainWindow, QStatusBar, QToolBar, QMainWindow
 from PyQt5.QtGui import QIntValidator, QIcon, QPixmap, QImage
 from PyQt5.QtCore import Qt, QTimer, QMetaObject, QThread
+import pyqtgraph as pg
 import threading
 import serial
 import time
@@ -215,15 +216,16 @@ class MicroscopeControlGUI(QMainWindow):
         self.setWindowTitle('LSM Control')
 
         # Create the canvas for the camera
-        self.canvas = QLabel()
-        self.canvas.setMaximumSize(500, 500)
+        self.canvas = pg.ImageView()
+        #self.canvas = QLabel()
+        #self.canvas.setMaximumSize(500, 500)
         #imageData = np.random.randint(65535, size=(2048,2048))
         imageData = np.zeros((2048,2048))
         imageData16 = imageData.astype(np.uint16)
         qImage = QImage(imageData16, 2048,2048,QImage.Format.Format_Grayscale16)
         pixMap = QPixmap.fromImage(qImage)
-        self.canvas.setPixmap(pixMap)
-        
+        self.canvas.setImage(imageData)
+        self.canvas.setMinimumWidth(500)
         # Create the main layout
         main_layout = QHBoxLayout()
         
@@ -430,9 +432,10 @@ class MicroscopeControlGUI(QMainWindow):
     
     def update_canvas(self, img):
         #img = self.get_image_from_camera()
-        qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
-        pixMap = QPixmap.fromImage(qImage)
-        self.canvas.setPixmap(pixMap)
+        #qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
+        #pixMap = QPixmap.fromImage(qImage)
+        #self.canvas.setPixmap(pixMap)
+        self.canvas.setImage(img)
         print("updating canvas")
 
     def closeEvent(self, event):
