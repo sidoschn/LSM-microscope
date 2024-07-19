@@ -207,10 +207,8 @@ class MicroscopeControlGUI(QMainWindow):
 
         # Create the canvas for the camera
         self.canvas = pg.ImageView()
-        imageData = np.zeros((2048,2048))
+        imageData = np.zeros((default_cam_pix_x,default_cam_pix_y))
         imageData16 = imageData.astype(np.uint16)
-        qImage = QImage(imageData16, 2048,2048,QImage.Format.Format_Grayscale16)
-        pixMap = QPixmap.fromImage(qImage)
         self.canvas.setImage(imageData)
         self.canvas.roi.setSize(default_roi_size)
         self.canvas.roi.setPos(default_roi_position)
@@ -357,6 +355,8 @@ class MicroscopeControlGUI(QMainWindow):
 
         self.start_lens_live_update_thread(only_create=True)
 
+        
+
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
@@ -391,8 +391,10 @@ class MicroscopeControlGUI(QMainWindow):
             self.update_canvas(self.image_data)
             
     
-    def update_canvas(self, img):
+    def update_canvas(self, img, frame_index = 0):
         self.canvas.setImage(img)
+        if not frame_index == 0:
+            self.canvas.setCurrentIndex(frame_index)
         
         #print("updating canvas")
 
@@ -654,6 +656,11 @@ class MicroscopeControlGUI(QMainWindow):
         
         self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
 
+        self.image_stack_data = np.zeros(((math.floor((z_max + z_step- z_min)/z_step)),default_cam_pix_x,default_cam_pix_y))
+        #imageData = np.random.randint(default_vMax, size=(2048,2048))
+        #self.image_stack_data = self.image_stack_data.astype(np.uint16)
+        
+        i = 0
         for z in range(z_min, z_max + z_step, z_step):
             if stop_event.is_set():
                 print("aborting acquisiton")
@@ -672,9 +679,15 @@ class MicroscopeControlGUI(QMainWindow):
             self.cam.record()
             
             self.image_data, self.image_metadata = self.get_image_from_camera()
+
+            self.image_stack_data[i,:,:] = self.image_data
+
+            
+
             #print("taking image")
 
-            self.update_canvas(self.image_data)
+            self.update_canvas(self.image_stack_data, frame_index = i)
+
 
             # Convert to uint16
             grayscale_image_uint16 = self.image_data.astype(np.uint16)
@@ -683,6 +696,7 @@ class MicroscopeControlGUI(QMainWindow):
             # Save the image
             image_path = f"image_{z}.tif"
             imwrite(image_path, grayscale_image_uint16)
+            i = i+ 1
 
         # Pause stepper motor 
         self.send_command_arduino("p?") #todo: check if this is sensible or neccessary
