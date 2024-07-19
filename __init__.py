@@ -28,7 +28,6 @@ lens_max_diopter = 5
 lens_min_diopter = -5
 #setting default dynamic range of image display canvas
 default_vMin = 0
-#default_vMax = 65535
 default_vMax = 65535
 
 default_cam_pix_x = 2048
@@ -54,10 +53,10 @@ class CameraDummy:
         print("simulating camera")
 
     def record(self, n_images=1, mode="sequence"):
-        print("starting recording of "+str(n_images)+" images in "+str(mode)+" mode")
-        print("exposure time "+str(self.expodure_time)+"ms, delay "+str(self.delay_time)+" ms")
+        #print("starting recording of "+str(n_images)+" images in "+str(mode)+" mode")
+        #print("exposure time "+str(self.expodure_time)+"ms, delay "+str(self.delay_time)+" ms")
         time.sleep(1.0*(self.expodure_time+self.delay_time)/1000.0)
-        print("recording done")
+        #print("recording done")
 
     def image(self):
         #print("capturing image")
@@ -70,15 +69,15 @@ class CameraDummy:
         return imageData16, metaData
 
     def wait_for_first_image(self):
-        print("waiting for first image")
+        #print("waiting for first image")
         time.sleep(1.0*(self.expodure_time+self.delay_time)/1000.0)
-        print("done waiting")
+        #print("done waiting")
 
     
     def wait_for_new_image(self, delay=True, timeout=15):
-        print("waiting for new image")
+        #print("waiting for new image")
         time.sleep(1.0*(self.expodure_time+self.delay_time)/1000.0)
-        print("done waiting")
+        #print("done waiting")
 
     def stop(self):
         print("cam stopped")
@@ -135,11 +134,11 @@ class LensDummy:
 
     def set_diopter(self, lens_diopter):
         self.lens_diopter = lens_diopter
-        print("refractive power set to "+str(lens_diopter)+ "diopter")
+        #print("refractive power set to "+str(lens_diopter)+ "diopter")
 
     def get_diopter(self):
         
-        print("lens diopter is "+str(self.lens_diopter))
+        #print("lens diopter is "+str(self.lens_diopter))
         return self.lens_diopter
     
     def close(self):
@@ -151,35 +150,12 @@ class ScannerDummy:
         print("simulating scanner")
     
     def write(self,command):
-        print("command sent to arduino")
+        #print("command sent to arduino")
+        return 0
 
     def close(self):
         print("scanner connection closed")
 
-
-# class MplCanvas(QLabel):
-#     def __init__(self):
-#         imageData = np.zeros((2048,2048))
-#         imageData16 = imageData.astype(np.uint16)
-#         qImage = QImage(imageData16, 2048,2048,QImage.Format.Format_Grayscale16)
-        
-#         self.setPixmap(QPixmap.fromImage(qImage))
-        # self.fig, self.ax = plt.subplots()
-        # self.img_plot = self.ax.imshow(np.zeros((2048, 2048)), cmap='gray', norm=Normalize(vmin=default_vMin, vmax=default_vMax))
-        # self.ax.set_ylim(0, 2048)
-        # self.ax.set_xlim(0, 2048)
-        #super().__init__(self.fig)
-
-
-# class MplCanvas(FigureCanvas):
-#     def __init__(self):
-        
-        
-#         self.fig, self.ax = plt.subplots()
-#         self.img_plot = self.ax.imshow(np.zeros((2048, 2048)), cmap='gray', norm=Normalize(vmin=default_vMin, vmax=default_vMax))
-#         self.ax.set_ylim(0, 2048)
-#         self.ax.set_xlim(0, 2048)
-#         super().__init__(self.fig)
 
 class MicroscopeControlGUI(QMainWindow):
     def __init__(self):
@@ -231,9 +207,6 @@ class MicroscopeControlGUI(QMainWindow):
 
         # Create the canvas for the camera
         self.canvas = pg.ImageView()
-        #self.canvas = QLabel()
-        #self.canvas.setMaximumSize(500, 500)
-        #imageData = np.random.randint(65535, size=(2048,2048))
         imageData = np.zeros((2048,2048))
         imageData16 = imageData.astype(np.uint16)
         qImage = QImage(imageData16, 2048,2048,QImage.Format.Format_Grayscale16)
@@ -241,11 +214,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.canvas.setImage(imageData)
         self.canvas.roi.setSize(default_roi_size)
         self.canvas.roi.setPos(default_roi_position)
-        
-        #self.green_colormap = pg.colormap.get('CET-L5')
-        #self.green_colormap.mapping_mode(1)
-        #print(self.green_colormap.)
-        #self.canvas.setColorMap(self.green_colormap)
+       
         self.canvas.setMinimumWidth(500)
         # Create the main layout
         main_layout = QHBoxLayout()
@@ -274,43 +243,13 @@ class MicroscopeControlGUI(QMainWindow):
         self.stop_live_view_btn.clicked.connect(self.stop_live_acquisition)
         self.stop_live_view_btn.setDisabled(True)
         exposure_layout.addWidget(self.stop_live_view_btn)
-        # Add vmin input
-        # vmin_layout = QHBoxLayout()
-        # vmin_label = QLabel("vmin:")
-        # self.vmin_input = QLineEdit(str(default_vMin))
-        # self.vmin_input.returnPressed.connect(self.update_vmin_vmax)
-        # vmin_layout.addWidget(vmin_label)
-        # vmin_layout.addWidget(self.vmin_input)
-
-        # Add vmax input
-        # vmax_layout = QHBoxLayout()
-        # vmax_label = QLabel("vmax:")
-        # self.vmax_input = QLineEdit(str(default_vMax))
-        # self.vmax_input.returnPressed.connect(self.update_vmin_vmax)
-        # vmax_layout.addWidget(vmax_label)
-        # vmax_layout.addWidget(self.vmax_input)
 
         # Add the exposure and min/max controls to the settings layout
         settings_layout.addLayout(exposure_layout)
-        # settings_layout.addLayout(vmin_layout)
-        # settings_layout.addLayout(vmax_layout)
-
+        
         # Label um step fixed size
         self.label_joystick = QLabel('10 um steps for sample stage')
         self.create_control_buttons()
-
-        # Camera plot thorugh a canvas
-        
-        #self.canvas_timer = QTimer()
-        #self.canvas_timer.timeout.connect(self.fire_canvas_update_thread)
-        #self.canvas_timer.start(100)  # 10 frames per second
-        
-        
-        # self.position_update_timer = QTimer()
-        # self.position_update_timer.timeout.connect(self.update_position_indicator)
-        # self.position_update_timer.start(10)
-
-        #self.init_live_acquisition()
 
         # Sliders stage
         x_layout, self.x_slider, self.x_text = self.create_slider_with_text('X Position (um)', -10000, 10000, 0, self.move_stage, channel=0)
@@ -421,8 +360,7 @@ class MicroscopeControlGUI(QMainWindow):
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
-        
-    #legacy
+
     def update_exposure_time(self):
         try:
             exposure_time = int(self.exposure_input.text())
@@ -430,16 +368,6 @@ class MicroscopeControlGUI(QMainWindow):
             self.cam.sdk.set_delay_exposure_time(0, 'ms', exposure_time, 'ms')
         except ValueError:
             print("Invalid exposure time")
-
-    #legacy
-    def update_vmin_vmax(self):
-        try:
-            vmin = int(self.vmin_input.text())
-            vmax = int(self.vmax_input.text())
-            #self.canvas.img_plot.set_norm(Normalize(vmin=vmin, vmax=vmax))
-            #self.canvas.draw()
-        except ValueError:
-            print("Invalid vmin or vmax")
 
     def fire_canvas_update_thread(self):
         self.canvas_update_thread = threading.Thread(target=self.update_canvas)
@@ -461,20 +389,12 @@ class MicroscopeControlGUI(QMainWindow):
             self.cam.wait_for_new_image(delay=True, timeout=15)
             self.image_data, self.image_metadata = self.get_image_from_camera()
             self.update_canvas(self.image_data)
-            # qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
-            # pixMap = QPixmap.fromImage(qImage)
-            # self.canvas.setPixmap(pixMap)
             
-        #print("canvas thread stopped")
     
     def update_canvas(self, img):
-        #img = self.get_image_from_camera()
-        #qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
-        #pixMap = QPixmap.fromImage(qImage)
-        #self.canvas.setPixmap(pixMap)
         self.canvas.setImage(img)
         
-        print("updating canvas")
+        #print("updating canvas")
 
     def closeEvent(self, event):
         event.accept()
@@ -491,16 +411,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.cam.wait_for_first_image()
 
         img, meta = self.cam.image()
-        #img = img.reshape((2048, 2048)) # is reshaping really neccessary?
-        
-        # clipping and scaling the image data is highly depreceated and is removed
-
-        # # Apply the vmin and vmax normalization
-        # img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
-
-        # # Scale the image to the range of uint16 (0 to 65535)
-        # img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
-
+       
         # Convert to uint16
         grayscale_image_uint16 = img.astype(np.uint16) #done: check if img.astype is neccessary or clipping the data: no clipping, it is neccessary, otherwhise the tiff image will be 32bit float
 
@@ -547,11 +458,6 @@ class MicroscopeControlGUI(QMainWindow):
         self.current_slider.setValue(math.floor(new_diopter_value*1000)) #change lens diopter in slider
         self.current_text.setText(str(math.floor(new_diopter_value*1000))) #change lens diopter in slider text
         self.lens.set_diopter(new_diopter_value) #change lens diopter but make it blocking
-
-    # this function is depreceated due to the non-linear correlation of current and lens focal strength
-    def change_optotune_current(self, value):
-        optoTuneThread = threading.Thread(target=self.lens.set_current, args=([value]))
-        optoTuneThread.start()
 
     def send_acc_serial_command(self, value):
         command = "a?" + str(value)
@@ -702,9 +608,7 @@ class MicroscopeControlGUI(QMainWindow):
                 self.calib_led_indicator.setStyleSheet("border : 2px solid black; background-color : green")
 
 
-    def clear_Lens_calib(self):
-        	
-            
+    def clear_Lens_calib(self):  
         self.lensCalib = np.zeros((2,2)) #reset lens calib to 0,0;0,0
         self.bLensCalibrated = False # reset calibration flag to false
         self.set_calibration_status_indicator(0) # reset calib indicator to uncalibrated
@@ -748,6 +652,7 @@ class MicroscopeControlGUI(QMainWindow):
         # Disable the live-view controls
         self.set_disable_live_view_controls(True)
         
+        self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
 
         for z in range(z_min, z_max + z_step, z_step):
             if stop_event.is_set():
@@ -756,59 +661,39 @@ class MicroscopeControlGUI(QMainWindow):
             self.move_stage(2, z, True)  # here I move the stage and block the following commands
             if not z == z_min:
                 self.update_ui_elements(2, z_step)
-                print("moving")
+                #print("moving")
             
-            # ********************************
-
-            # Space for focus interpolation code
-
-            # ********************************
             if self.bLensCalibrated:
                 self.focus_interpolation()
-                print("refocusing")
+                #print("refocusing")
 
             # Get a single image
-            self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
+            
             self.cam.record()
             
-            #imageData = np.zeros((2048,2048))
-            #self.image_data = imageData.astype(np.uint16)
-            #img, meta = self.cam.image()
             self.image_data, self.image_metadata = self.get_image_from_camera()
-            #img = img.reshape((2048, 2048))
-            print("taking image")
+            #print("taking image")
 
             self.update_canvas(self.image_data)
-            # Apply the vmin and vmax normalization
-            #img_normalized = np.clip(img, int(self.vmin_input.text()), int(self.vmax_input.text()))
-
-            # Scale the image to the range of uint16 (0 to 65535)
-            #img_scaled = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min()) * 65535
 
             # Convert to uint16
             grayscale_image_uint16 = self.image_data.astype(np.uint16)
-            print("svaing image")
+            #print("svaing image")
+            
             # Save the image
             image_path = f"image_{z}.tif"
             imwrite(image_path, grayscale_image_uint16)
 
         # Pause stepper motor 
         self.send_command_arduino("p?") #todo: check if this is sensible or neccessary
-        # Restart live acquisition << this is obsolete due to the available start/stop buttons
-        #self.init_live_acquisition()
         
         # Re-enable the live-view controls
         self.set_disable_live_view_controls(False)
         self.stop_acquisition_btn.setDisabled(True) # disable the stop stack acquisition button
         self.acquisition_thread_function_btn.setDisabled(False) #re-enable the stack acquisition start button
         
-
-
-
-
     def stop_acquisition(self):
         self.acquisition_thread_stop_event.set()
-        #self.acquisition_running = False
         self.send_command_arduino("h?")
     
     def init_live_acquisition(self):
@@ -906,11 +791,7 @@ class MicroscopeControlGUI(QMainWindow):
 
             #wait a while to refresh the thread
             time.sleep(default_position_update_delay)
-
-        #self.show()
-        
-        
-      
+    
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
