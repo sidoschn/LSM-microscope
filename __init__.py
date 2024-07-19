@@ -63,12 +63,18 @@ class CameraDummy:
         imageData16 = imageData.astype(np.uint16)
         wait_time = 1.0*(self.expodure_time+self.delay_time)/1000.0 
         #print(wait_time)
-        time.sleep(wait_time)
+        #time.sleep(wait_time)
         metaData = "none"
         return imageData16, metaData
 
     def wait_for_first_image(self):
         print("waiting for first image")
+        time.sleep(1.0*(self.expodure_time+self.delay_time)/1000.0)
+        print("done waiting")
+
+    
+    def wait_for_new_image(self, delay=True, timeout=15):
+        print("waiting for new image")
         time.sleep(1.0*(self.expodure_time+self.delay_time)/1000.0)
         print("done waiting")
 
@@ -450,7 +456,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.cam.wait_for_first_image()
         
         while not stop_event.is_set():
-            
+            self.cam.wait_for_new_image(delay=True, timeout=15)
             self.image_data, self.image_metadata = self.get_image_from_camera()
             self.update_canvas(self.image_data)
             # qImage = QImage(cv.normalize(img, None, 0,65535, cv.NORM_MINMAX,dtype=cv.CV_16U) , 2048,2048,QImage.Format.Format_Grayscale16)
