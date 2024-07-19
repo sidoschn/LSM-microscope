@@ -19,6 +19,8 @@ import random
 from enum import Enum
 import cv2 as cv
 
+software_version = "0.0.1"
+
 default_um_btn_move = 10
 
 lens_diopter = 0 #setting default lens diopter value to 0, centering it in its range (-5,5)
@@ -225,7 +227,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.initUI()
         
     def initUI(self):
-        self.setWindowTitle('LSM Control')
+        self.setWindowTitle('LSM Control (version '+ software_version+ ")")
 
         # Create the canvas for the camera
         self.canvas = pg.ImageView()
