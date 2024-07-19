@@ -29,10 +29,16 @@ default_vMin = 0
 #default_vMax = 65535
 default_vMax = 65535
 
+default_cam_pix_x = 2048
+default_cam_pix_y = 2048
+
 default_lens_live_update_delay = 0.1
 default_exposure_time = int(100)
 default_position_update_delay = 0.1
 #testpush to master2
+
+default_roi_position = (math.floor(default_cam_pix_x/4),math.floor(default_cam_pix_y/4))
+default_roi_size = (math.floor(default_cam_pix_x/2),math.floor(default_cam_pix_y/2))
 
 
 class CameraDummy:
@@ -225,6 +231,9 @@ class MicroscopeControlGUI(QMainWindow):
         qImage = QImage(imageData16, 2048,2048,QImage.Format.Format_Grayscale16)
         pixMap = QPixmap.fromImage(qImage)
         self.canvas.setImage(imageData)
+        self.canvas.roi.setSize(default_roi_size)
+        self.canvas.roi.setPos(default_roi_position)
+        
         #self.green_colormap = pg.colormap.get('CET-L5')
         #self.green_colormap.mapping_mode(1)
         #print(self.green_colormap.)
@@ -358,6 +367,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.acquisition_thread_function_btn.clicked.connect(self.start_acquisition_thread_function)
         self.stop_acquisition_btn = QPushButton("Stop Stack Acquisition")
         self.stop_acquisition_btn.clicked.connect(self.stop_acquisition)
+        self.stop_acquisition_btn.setDisabled(True) #disable the stop command, only enabled during stack acquisition
 
         self.save_image_btn = QPushButton("Save image")
         self.save_image_btn.clicked.connect(self.save_image)
@@ -404,7 +414,7 @@ class MicroscopeControlGUI(QMainWindow):
         container.setLayout(main_layout)
         self.setCentralWidget(container)
         
-
+    #legacy
     def update_exposure_time(self):
         try:
             exposure_time = int(self.exposure_input.text())
@@ -413,6 +423,7 @@ class MicroscopeControlGUI(QMainWindow):
         except ValueError:
             print("Invalid exposure time")
 
+    #legacy
     def update_vmin_vmax(self):
         try:
             vmin = int(self.vmin_input.text())
@@ -432,6 +443,11 @@ class MicroscopeControlGUI(QMainWindow):
 
     def canvas_update_timer_thread(self, stop_event, message):
         #print("canvas thread started")
+        self.cam.sdk.set_recording_state('off')
+        self.cam.sdk.set_trigger_mode('auto sequence')
+        self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
+        self.cam.record(4, mode="ring buffer")
+        self.cam.wait_for_first_image()
         
         while not stop_event.is_set():
             
@@ -456,6 +472,7 @@ class MicroscopeControlGUI(QMainWindow):
         event.accept()
         self.lens_live_update_stop_event.set()
         self.canvas_timer_stop_event.set()
+        self.position_update_stop_event.set()
         self.cam.stop()
         self.cam.close()
         self.controller_mcm.close()
@@ -712,14 +729,17 @@ class MicroscopeControlGUI(QMainWindow):
             print("Invalid Z values or Z step")
             return
 
+        self.acquisition_thread_function_btn.setDisabled(True) #disable stack acquisition button to avoid double clicking
         self.acquisition_running = True
         self.send_command_arduino("s?")
 
-        # Stop the function that update the canvas
-        self.canvas_timer_stop_event.set()
+        self.stop_acquisition_btn.setDisabled(False) # enable the stop stack acquisition button
 
-        # stop the previous recorder
-        self.cam.stop()
+        # Stop the live actuisition
+        self.stop_live_acquisition
+        # Disable the live-view controls
+        self.set_disable_live_view_controls(True)
+        
 
         for z in range(z_min, z_max + z_step, z_step):
             if stop_event.is_set():
@@ -766,8 +786,16 @@ class MicroscopeControlGUI(QMainWindow):
 
         # Pause stepper motor 
         self.send_command_arduino("p?") #todo: check if this is sensible or neccessary
-        # Restart live acquisition
-        self.init_live_acquisition()
+        # Restart live acquisition << this is obsolete due to the available start/stop buttons
+        #self.init_live_acquisition()
+        
+        # Re-enable the live-view controls
+        self.set_disable_live_view_controls(False)
+        self.stop_acquisition_btn.setDisabled(True) # disable the stop stack acquisition button
+        self.acquisition_thread_function_btn.setDisabled(False) #re-enable the stack acquisition start button
+        
+
+
 
 
     def stop_acquisition(self):
@@ -779,23 +807,32 @@ class MicroscopeControlGUI(QMainWindow):
         
         self.start_live_view_btn.setDisabled(True) #disable start button to inhibit double clicking
         
-        self.cam.sdk.set_recording_state('off')
-        self.cam.sdk.set_trigger_mode('auto sequence')
-        self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
-        self.cam.record(4, mode="ring buffer")
-        self.cam.wait_for_first_image()
+        # moved into the thread
+        
         self.canvas_timer_stop_event = threading.Event()
         self.canvas_timer = threading.Thread(target=self.canvas_update_timer_thread, args=(self.canvas_timer_stop_event, "message"), daemon=True)
         self.canvas_timer.start()
 
         self.stop_live_view_btn.setDisabled(False) #enable stop button
+        self.acquisition_thread_function_btn.setDisabled(True) #disable stack acquisition button
         
         
     def stop_live_acquisition(self):
         self.stop_live_view_btn.setDisabled(True) #immediately disable button to inhibit double clicking
         self.canvas_timer_stop_event.set()
+        self.cam.stop()
         self.start_live_view_btn.setDisabled(False) #enable start button
+        self.acquisition_thread_function_btn.setDisabled(False) #enable stack acquisition button
         
+    def set_disable_live_view_controls(self, bDisabled):
+        # Disables the live-view controls re-enables them
+        if bDisabled:
+            self.start_live_view_btn.setDisabled(True)
+            self.stop_live_view_btn.setDisabled(True)
+        else:
+            self.start_live_view_btn.setDisabled(False)
+            self.stop_live_view_btn.setDisabled(True)
+
 
     def focus_interpolation(self):
         
