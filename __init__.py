@@ -27,7 +27,7 @@ lens_min_diopter = -5
 #setting default dynamic range of image display canvas
 default_vMin = 0
 #default_vMax = 65535
-default_vMax = 5535
+default_vMax = 65535
 
 default_lens_live_update_delay = 0.1
 default_exposure_time = int(100)
@@ -225,6 +225,10 @@ class MicroscopeControlGUI(QMainWindow):
         qImage = QImage(imageData16, 2048,2048,QImage.Format.Format_Grayscale16)
         pixMap = QPixmap.fromImage(qImage)
         self.canvas.setImage(imageData)
+        #self.green_colormap = pg.colormap.get('CET-L5')
+        #self.green_colormap.mapping_mode(1)
+        #print(self.green_colormap.)
+        #self.canvas.setColorMap(self.green_colormap)
         self.canvas.setMinimumWidth(500)
         # Create the main layout
         main_layout = QHBoxLayout()
@@ -244,26 +248,35 @@ class MicroscopeControlGUI(QMainWindow):
         exposure_layout.addWidget(exposure_label)
         exposure_layout.addWidget(self.exposure_input)
 
+        # Add start/stop live view buttons
+        self.start_live_view_btn = QPushButton("Start Live-View")
+        self.start_live_view_btn.clicked.connect(self.init_live_acquisition)
+        exposure_layout.addWidget(self.start_live_view_btn)
+
+        self.stop_live_view_btn = QPushButton("Stop Live-View")
+        self.stop_live_view_btn.clicked.connect(self.stop_live_acquisition)
+        self.stop_live_view_btn.setDisabled(True)
+        exposure_layout.addWidget(self.stop_live_view_btn)
         # Add vmin input
-        vmin_layout = QHBoxLayout()
-        vmin_label = QLabel("vmin:")
-        self.vmin_input = QLineEdit(str(default_vMin))
-        self.vmin_input.returnPressed.connect(self.update_vmin_vmax)
-        vmin_layout.addWidget(vmin_label)
-        vmin_layout.addWidget(self.vmin_input)
+        # vmin_layout = QHBoxLayout()
+        # vmin_label = QLabel("vmin:")
+        # self.vmin_input = QLineEdit(str(default_vMin))
+        # self.vmin_input.returnPressed.connect(self.update_vmin_vmax)
+        # vmin_layout.addWidget(vmin_label)
+        # vmin_layout.addWidget(self.vmin_input)
 
         # Add vmax input
-        vmax_layout = QHBoxLayout()
-        vmax_label = QLabel("vmax:")
-        self.vmax_input = QLineEdit(str(default_vMax))
-        self.vmax_input.returnPressed.connect(self.update_vmin_vmax)
-        vmax_layout.addWidget(vmax_label)
-        vmax_layout.addWidget(self.vmax_input)
+        # vmax_layout = QHBoxLayout()
+        # vmax_label = QLabel("vmax:")
+        # self.vmax_input = QLineEdit(str(default_vMax))
+        # self.vmax_input.returnPressed.connect(self.update_vmin_vmax)
+        # vmax_layout.addWidget(vmax_label)
+        # vmax_layout.addWidget(self.vmax_input)
 
         # Add the exposure and min/max controls to the settings layout
         settings_layout.addLayout(exposure_layout)
-        settings_layout.addLayout(vmin_layout)
-        settings_layout.addLayout(vmax_layout)
+        # settings_layout.addLayout(vmin_layout)
+        # settings_layout.addLayout(vmax_layout)
 
         # Label um step fixed size
         self.label_joystick = QLabel('10 um steps for sample stage')
@@ -280,7 +293,7 @@ class MicroscopeControlGUI(QMainWindow):
         # self.position_update_timer.timeout.connect(self.update_position_indicator)
         # self.position_update_timer.start(10)
 
-        self.init_live_acquisition()
+        #self.init_live_acquisition()
 
         # Sliders stage
         x_layout, self.x_slider, self.x_text = self.create_slider_with_text('X Position (um)', -10000, 10000, 0, self.move_stage, channel=0)
@@ -339,8 +352,8 @@ class MicroscopeControlGUI(QMainWindow):
         self.z_step_text.setFixedWidth(50)
         self.z_step_text.setAlignment(Qt.AlignCenter)
 
-        self.set_encoders_to_cero_btn = QPushButton("Set to cero encoders sample stage")
-        self.set_encoders_to_cero_btn.clicked.connect(self.set_encoders_to_cero)
+        self.set_encoders_to_zero_btn = QPushButton("Set to zero encoders sample stage")
+        self.set_encoders_to_zero_btn.clicked.connect(self.set_encoders_to_zero)
         self.acquisition_thread_function_btn = QPushButton("Start Stack Acquisition")
         self.acquisition_thread_function_btn.clicked.connect(self.start_acquisition_thread_function)
         self.stop_acquisition_btn = QPushButton("Stop Stack Acquisition")
@@ -368,7 +381,7 @@ class MicroscopeControlGUI(QMainWindow):
         z_pos_layout.addWidget(self.z_step_text)
 
         settings_layout.addLayout(z_pos_layout)
-        settings_layout.addWidget(self.set_encoders_to_cero_btn)
+        settings_layout.addWidget(self.set_encoders_to_zero_btn)
         settings_layout.addWidget(self.acquisition_thread_function_btn)
         settings_layout.addWidget(self.stop_acquisition_btn)
         settings_layout.addWidget(self.save_image_btn)
@@ -436,6 +449,7 @@ class MicroscopeControlGUI(QMainWindow):
         #pixMap = QPixmap.fromImage(qImage)
         #self.canvas.setPixmap(pixMap)
         self.canvas.setImage(img)
+        
         print("updating canvas")
 
     def closeEvent(self, event):
@@ -762,6 +776,9 @@ class MicroscopeControlGUI(QMainWindow):
         self.send_command_arduino("h?")
     
     def init_live_acquisition(self):
+        
+        self.start_live_view_btn.setDisabled(True) #disable start button to inhibit double clicking
+        
         self.cam.sdk.set_recording_state('off')
         self.cam.sdk.set_trigger_mode('auto sequence')
         self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
@@ -770,7 +787,14 @@ class MicroscopeControlGUI(QMainWindow):
         self.canvas_timer_stop_event = threading.Event()
         self.canvas_timer = threading.Thread(target=self.canvas_update_timer_thread, args=(self.canvas_timer_stop_event, "message"), daemon=True)
         self.canvas_timer.start()
+
+        self.stop_live_view_btn.setDisabled(False) #enable stop button
         
+        
+    def stop_live_acquisition(self):
+        self.stop_live_view_btn.setDisabled(True) #immediately disable button to inhibit double clicking
+        self.canvas_timer_stop_event.set()
+        self.start_live_view_btn.setDisabled(False) #enable start button
         
 
     def focus_interpolation(self):
@@ -787,7 +811,7 @@ class MicroscopeControlGUI(QMainWindow):
         #print("optotune lens focus changed")
         #print(str(self.lens.get_diopter()))
 
-    def set_encoders_to_cero(self):
+    def set_encoders_to_zero(self):
         for channel in range(3):
             self.controller_mcm._set_encoder_counts_to_zero(channel)
         self.x_text.setText(str(0))
