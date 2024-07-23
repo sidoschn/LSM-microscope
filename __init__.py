@@ -153,9 +153,14 @@ class CameraDummy:
 
 
 class StageDummy:
-    
+    class ChannelName(Enum):
+            X = 0
+            Y = 1
+            Z = 2
+
     def __init__(self):
         print("simulating xyz stage")
+        self.pos = np.zeros(3)
         
     def _set_encoder_counts_to_zero(self, channel):
         print("defined as zero")
@@ -165,16 +170,26 @@ class StageDummy:
 
     def get_position_um(self, channel):
         #pos = " 5"
-        pos = (random.uniform(-4000,4000))
+        #pos = (random.uniform(-4000,4000))
+        
+        pos = self.pos[channel]
+
         return pos
 
     def move_um(self, channel, move_um, relative, block=True):
-        class ChannelName(Enum):
-            X = 0
-            Y = 1
-            Z = 2
         
-        print("moving stage on "+str(ChannelName(channel).name)+" axis for "+ str(move_um)+ " um")
+        if relative:
+            self.pos[channel] = self.pos[channel]+ move_um
+            print("moving stage on "+str(self.ChannelName(channel).name)+" axis for "+ str(move_um)+ " um")
+            time.sleep(abs(move_um/100.0))
+        else:
+            moveDelta = move_um-self.pos[channel]
+            self.pos[channel] = move_um
+            print("moving stage on "+str(self.ChannelName(channel).name)+" axis for "+ str(moveDelta)+ " um")
+            time.sleep(abs(moveDelta/100.0))
+        
+        
+        print("done moving")
         
 
 class LensDummy:
