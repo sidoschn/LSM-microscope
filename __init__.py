@@ -835,6 +835,7 @@ class MicroscopeControlGUI(QMainWindow):
         self.calib_led_indicator.setStyleSheet("border : 2px solid black; background-color : red")
         self.calib_led_indicator.setDisabled(True)
         self.status_bar = QStatusBar()
+        #self.status_bar.setStyleSheet("border: 1px solid black")
         self.status_bar.addPermanentWidget(QLabel("Lens calibration status: "))
         self.status_bar.addPermanentWidget(self.calib_led_indicator)
 
@@ -850,9 +851,11 @@ class MicroscopeControlGUI(QMainWindow):
         self.status_bar.addPermanentWidget(QLabel("Z="))
         self.position_indicator_Z = QLabel("0 ")
         self.status_bar.addPermanentWidget(self.position_indicator_Z) 
-        
+        self.status_bar.addPermanentWidget(QLabel(""),1) #this is a buffer to align content to the left
+        #self.status_bar.setStyleSheet("border :1px solid black")
         self.setStatusBar(self.status_bar)
-        self.statusBar
+        #self.statusBar().setStyleSheet("border :1px solid black")
+        #self.statusBar
 
     def update_position_indicator(self, stop_event, message):
         
