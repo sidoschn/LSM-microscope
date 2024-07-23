@@ -226,6 +226,15 @@ class ScannerDummy:
         print("scanner connection closed")
 
 
+class ObjectiveInfo:
+    def __init__(self, description, NA, FoV_um):
+        self.description = description
+        self.NA = NA
+        self.FoV = FoV_um
+
+    def calculate_pixel_size(self, pixels):
+        self.pixelSize = self.FoV/pixels
+        return self.pixelSize
 
 
 
