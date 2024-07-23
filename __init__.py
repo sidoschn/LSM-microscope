@@ -18,33 +18,87 @@ import math
 import random
 from enum import Enum
 import cv2 as cv
+import configparser
+import os
+import json
 
 software_version = "0.0.1"
 
-default_um_btn_move = 10
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+elif __file__:
+    application_path = os.path.dirname(__file__)
 
+#-- Defaults --
+# Camera defaults
+default_cam_pix_x = 2048
+default_cam_pix_y = 2048
+default_exposure_time = int(100)
+
+# Lens defaults
 lens_diopter = 0 #setting default lens diopter value to 0, centering it in its range (-5,5)
 lens_max_diopter = 5
 lens_min_diopter = -5
+default_lens_live_update_delay = 0.1
+
+# Stage defaults
+default_position_update_delay = 0.1
+
+# Scanner defauls
+
+# UI defaults
+default_um_btn_move = 10
 #setting default dynamic range of image display canvas
 default_vMin = 0
 default_vMax = 65535
-
-default_cam_pix_x = 2048
-default_cam_pix_y = 2048
-
-default_lens_live_update_delay = 0.1
-default_exposure_time = int(100)
-default_position_update_delay = 0.1
-#testpush to master2
-
 default_roi_position = (math.floor(default_cam_pix_x/4),math.floor(default_cam_pix_y/4))
 default_roi_size = (math.floor(default_cam_pix_x/2),math.floor(default_cam_pix_y/2))
+default_config_file_path = application_path+"\config.json" # the config file location is fixed and cannot be modified from the config file itself to avoid file detection issues
+default_save_file_path = application_path+"\imageOut"
+
+#-- Defaults --
+
+# manage configuration file and its data
+class ConfigFile:
+    def __init__(self):
+        self.configs = {
+            "default_um_btn_move": default_um_btn_move,
+            "default_vMin": default_vMin,
+            "default_vMax": default_vMax,
+            "default_roi_position":default_roi_position,
+            "default_roi_size":default_roi_size,
+            "default_cam_pix_x": default_cam_pix_x,
+            "default_cam_pix_y": default_cam_pix_y,
+            "default_exposure_time": default_exposure_time,
+            "lens_diopter": lens_diopter,
+            "lens_max_diopter": lens_max_diopter,
+            "lens_min_diopter": lens_min_diopter,
+            "default_lens_live_update_delay": default_lens_live_update_delay,
+            "default_position_update_delay": default_position_update_delay,
+            "default_save_file_path": default_save_file_path
+            }
+    
+    def loadConfig(self, filePath):
+        if os.path.exists(filePath):
+            with open(filePath,"r") as jsonFile:
+                data = json.load(jsonFile)
+                #print(data)
+                self.configs = data
+            print("configuration loaded")
+        else:
+            self.saveConfig(filePath) #create a new config file that contains the default values if no file was found
+            print("no config file found, creating new file with default configuration")
+        return
+    
+    def saveConfig(self, filePath):
+        with open(filePath,"w") as jsonFile:
+            jsonFileData = json.dumps(self.configs)
+            jsonFile.write(jsonFileData)
+        return
 
 
 class CameraDummy:
-    
-    
+
     def __init__(self):
         self.sdk = self
         self.expodure_time = 0
@@ -157,13 +211,20 @@ class ScannerDummy:
         print("scanner connection closed")
 
 
+
+
+
+
 class MicroscopeControlGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        # Initialize components
-        
+        self.configData = ConfigFile()
+        self.configData.loadConfig(default_config_file_path)
+        # get default configs from file (or generate a new file)
+        #self.get_config()
 
+        # Initialize components
         try:
             self.controller_mcm = mc.Controller(which_port='COM4',
                                         stages=('ZFM2020', 'ZFM2020', 'ZFM2020'),
@@ -184,7 +245,7 @@ class MicroscopeControlGUI(QMainWindow):
             self.lens = LensDummy()
 
         self.lens.to_focal_power_mode() # switch lens to focus power mode instead of current mode
-        self.lens.set_diopter(lens_diopter) # set diopter to default value
+        self.lens.set_diopter(self.configData.configs["lens_diopter"]) # set diopter to default value
         
         self.lensCalib = np.zeros((2,2))
         self.bLensCalibrated = False
@@ -207,13 +268,13 @@ class MicroscopeControlGUI(QMainWindow):
 
         # Create the canvas for the camera
         self.canvas = pg.ImageView()
-        imageData = np.zeros((default_cam_pix_x,default_cam_pix_y))
+        imageData = np.zeros((self.configData.configs["default_cam_pix_x"],self.configData.configs["default_cam_pix_y"]))
         imageData16 = imageData.astype(np.uint16)
         self.canvas.setImage(imageData)
-        self.canvas.roi.setSize(default_roi_size)
-        self.canvas.roi.setPos(default_roi_position)
-       
+        self.canvas.roi.setSize(self.configData.configs["default_roi_size"])
+        self.canvas.roi.setPos(self.configData.configs["default_roi_position"])
         self.canvas.setMinimumWidth(500)
+        
         # Create the main layout
         main_layout = QHBoxLayout()
         
@@ -226,9 +287,9 @@ class MicroscopeControlGUI(QMainWindow):
         # Add exposure time input
         exposure_layout = QHBoxLayout()
         exposure_label = QLabel("Exposure Time (ms):")
-        self.exposure_input = QLineEdit(str(default_exposure_time))
+        self.exposure_input = QLineEdit(str(self.configData.configs["default_exposure_time"]))
         self.exposure_input.returnPressed.connect(self.update_exposure_time)
-        self.exposure_time = default_exposure_time 
+        self.exposure_time = self.configData.configs["default_exposure_time"]
         exposure_layout.addWidget(exposure_label)
         exposure_layout.addWidget(self.exposure_input)
 
@@ -355,11 +416,11 @@ class MicroscopeControlGUI(QMainWindow):
 
         self.start_lens_live_update_thread(only_create=True)
 
-        
-
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
+
+    
 
     def update_exposure_time(self):
         try:
@@ -399,14 +460,17 @@ class MicroscopeControlGUI(QMainWindow):
         #print("updating canvas")
 
     def closeEvent(self, event):
-        event.accept()
-        self.lens_live_update_stop_event.set()
-        self.canvas_timer_stop_event.set()
-        self.position_update_stop_event.set()
-        self.cam.stop()
-        self.cam.close()
-        self.controller_mcm.close()
-        self.arduino.close()
+        try:
+            event.accept()
+            self.lens_live_update_stop_event.set()
+            self.canvas_timer_stop_event.set()
+            self.position_update_stop_event.set()
+            self.cam.stop()
+            self.cam.close()
+            self.controller_mcm.close()
+            self.arduino.close()
+        except:
+            print("some processes could not be closed properly")
 
     def save_image(self):
 
@@ -536,8 +600,8 @@ class MicroscopeControlGUI(QMainWindow):
             self.controller_mcm.move_um(channel,value,False)
 
     def move_stage_2(self, channel, direction):
-        move_value = default_um_btn_move * direction
-        MoveStageThread2 = threading.Thread(target=self.controller_mcm.move_um, args=(channel, default_um_btn_move * direction, True))
+        move_value = self.configData.configs["default_um_btn_move"] * direction
+        MoveStageThread2 = threading.Thread(target=self.controller_mcm.move_um, args=(channel, self.configData.configs["default_um_btn_move"] * direction, True))
         MoveStageThread2.start()
         self.update_ui_elements(channel, move_value)
 
@@ -594,7 +658,7 @@ class MicroscopeControlGUI(QMainWindow):
                 current_z_pos = self.stage_position[2]
                 newDiopter = self.get_lens_diopter_according_to_calibration(bFromStage=False)
                 self.change_optotune_diopter_blocking(newDiopter)
-        time.sleep(default_lens_live_update_delay) # pause before redoing the lens refresh check
+        time.sleep(self.configData.configs["default_lens_live_update_delay"]) # pause before redoing the lens refresh check
 
 
     def set_calibration_status_indicator(self, state):
@@ -656,7 +720,7 @@ class MicroscopeControlGUI(QMainWindow):
         
         self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
 
-        self.image_stack_data = np.zeros(((math.floor((z_max + z_step- z_min)/z_step)),default_cam_pix_x,default_cam_pix_y))
+        self.image_stack_data = np.zeros(((math.floor((z_max + z_step- z_min)/z_step)),self.configData.configs["default_cam_pix_x"],self.configData.configs["default_cam_pix_y"]))
         #imageData = np.random.randint(default_vMax, size=(2048,2048))
         #self.image_stack_data = self.image_stack_data.astype(np.uint16)
         
@@ -745,10 +809,10 @@ class MicroscopeControlGUI(QMainWindow):
         
         new_diopter_value = self.get_lens_diopter_according_to_calibration()
         #print(new_diopter_value)
-        if (new_diopter_value>lens_max_diopter):
-            new_diopter_value=lens_max_diopter
-        if (new_diopter_value<lens_min_diopter):
-            new_diopter_value=lens_min_diopter
+        if (new_diopter_value>self.configData.configs["lens_max_diopter"]):
+            new_diopter_value=self.configData.configs["lens_max_diopter"]
+        if (new_diopter_value<self.configData.configs["lens_min_diopter"]):
+            new_diopter_value=self.self.configData.configs["lens_min_diopter"]
         
         self.change_optotune_diopter_blocking(new_diopter_value)
         
@@ -804,7 +868,7 @@ class MicroscopeControlGUI(QMainWindow):
             self.position_indicator_Z.setText("{:005.0f}".format(self.stage_position[2]))
 
             #wait a while to refresh the thread
-            time.sleep(default_position_update_delay)
+            time.sleep(self.configData.configs["default_position_update_delay"])
     
 
 if __name__ == '__main__':
