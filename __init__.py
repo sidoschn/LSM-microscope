@@ -2,6 +2,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit, QGridLayout, QMainWindow, QStatusBar, QToolBar, QMainWindow
 from PyQt5.QtGui import QIntValidator, QIcon, QPixmap, QImage
 from PyQt5.QtCore import Qt, QTimer, QMetaObject, QThread
+import pco.camera
 import pyqtgraph as pg
 import threading
 import serial
@@ -23,6 +24,20 @@ import os
 import json
 
 software_version = "0.0.1"
+
+# todo:
+# - fix bug with ui incited movement interfering with movement indigator
+# - stop recorder after ending live view mode
+
+# Traceback (most recent call last):
+#   File "d:\Dominik\Github\LSM-microscope\__init__.py", line 507, in save_image
+#     self.cam.wait_for_first_image()
+#   File "D:\Dominik\Github\LSM-microscope\lsm_env\Lib\site-packages\pco\camera.py", line 1682, in wait_for_first_image
+#     if self.rec.get_status()["dwProcImgCount"] >= 1:
+#        ^^^^^^^^^^^^^^^^^^^^^
+#   File "D:\Dominik\Github\LSM-microscope\lsm_env\Lib\site-packages\pco\recorder.py", line 741, in get_status
+#     raise CameraException(sdk=self.sdk, code=error)
+# pco.camera_exception.CameraException: CameraException 0x80153004: SDK DLL error 80153004 at device 'recorder dll': Option is not available.
 
 if getattr(sys, 'frozen', False):
     application_path = os.path.dirname(sys.executable)
@@ -253,7 +268,7 @@ class MicroscopeControlGUI(QMainWindow):
             self.controller_mcm = mc.Controller(which_port='COM4',
                                         stages=('ZFM2020', 'ZFM2020', 'ZFM2020'),
                                         reverse=(False, False, False),
-                                        verbose=True,
+                                        verbose=False,
                                         very_verbose=False)
         except:
             print("xyz stage not found")
@@ -465,9 +480,9 @@ class MicroscopeControlGUI(QMainWindow):
     def canvas_update_timer_thread(self, stop_event, message):
         #print("canvas thread started")
         self.cam.sdk.set_recording_state('off')
-        self.cam.sdk.set_trigger_mode('auto sequence')
+        self.cam.sdk.set_trigger_mode('auto sequence') # change from auto sequence to fifo
         self.cam.sdk.set_delay_exposure_time(0, 'ms', self.exposure_time, 'ms')
-        self.cam.record(4, mode="ring buffer")
+        self.cam.record(4, mode="fifo")
         self.cam.wait_for_first_image()
         
         while not stop_event.is_set():
