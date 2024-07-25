@@ -484,6 +484,7 @@ class MicroscopeControlGUI(QMainWindow):
         #print("updating canvas")
 
     def closeEvent(self, event):
+        self.configData.saveConfig(default_config_file_path) #save the config changes to file
         try:
             event.accept()
             self.lens_live_update_stop_event.set()
