@@ -28,6 +28,7 @@ software_version = "0.0.1"
 # todo:
 # - fix bug with ui incited movement interfering with movement indigator
 # - stop recorder after ending live view mode
+# - bug stack acquisition in simulation mode only shows data after live view has been run once
 
 # Traceback (most recent call last):
 #   File "d:\Dominik\Github\LSM-microscope\__init__.py", line 507, in save_image
