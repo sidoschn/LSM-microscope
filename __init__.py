@@ -69,8 +69,8 @@ default_vMin = 0
 default_vMax = 65535
 default_roi_position = (math.floor(default_cam_pix_x/4),math.floor(default_cam_pix_y/4))
 default_roi_size = (math.floor(default_cam_pix_x/2),math.floor(default_cam_pix_y/2))
-default_config_file_path = application_path+"\config.json" # the config file location is fixed and cannot be modified from the config file itself to avoid file detection issues
-default_save_file_path = application_path+"\imageOut"
+default_config_file_path = application_path+"\\config.json" # the config file location is fixed and cannot be modified from the config file itself to avoid file detection issues
+default_save_file_path = application_path+"\\imageOut"
 
 #-- Defaults --
 
